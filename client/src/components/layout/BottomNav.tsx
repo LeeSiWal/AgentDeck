@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { IconHome, IconLog, IconSettings } from '../icons';
+import { NotificationBadge } from '../notification/NotificationBadge';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', Icon: IconHome },
@@ -21,7 +22,12 @@ export function BottomNav() {
             className="flex flex-col items-center gap-1 py-3 px-6 text-xs"
             style={{ color: active ? '#6366f1' : '#64748b' }}
           >
-            <item.Icon size={22} />
+            <div className="relative">
+              <item.Icon size={22} />
+              {item.href === '/dashboard' && (
+                <NotificationBadge className="absolute -top-1.5 -right-2.5" />
+              )}
+            </div>
             <span>{item.label}</span>
           </Link>
         );

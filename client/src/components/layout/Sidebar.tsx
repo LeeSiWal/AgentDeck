@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { IconHome, IconLog, IconSettings, IconLogout } from '../icons';
+import { NotificationBadge } from '../notification/NotificationBadge';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Projects', Icon: IconHome },
@@ -17,8 +18,9 @@ export function Sidebar({ onLogout }: SidebarProps) {
 
   return (
     <aside className="hidden md:flex flex-col w-48 bg-deck-surface border-r border-deck-border h-full">
-      <div className="p-4 border-b border-deck-border">
+      <div className="p-4 border-b border-deck-border flex items-center justify-between">
         <span className="text-sm font-bold text-deck-text">AgentDeck</span>
+        <NotificationBadge />
       </div>
 
       <nav className="flex-1 py-2">
