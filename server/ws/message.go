@@ -28,6 +28,16 @@ const (
 	EventFileTree       = "file:tree"
 )
 
+// Server -> Client events (meta + notifications)
+const (
+	EventAgentNotification      = "agent:notification"
+	EventAgentNotificationClear = "agent:notification:clear"
+	EventAgentMeta              = "agent:meta"
+	EventAgentMetaStatus        = "agent:meta:status"
+	EventAgentMetaProgress      = "agent:meta:progress"
+	EventAgentMetaLog           = "agent:meta:log"
+)
+
 type TerminalAttachPayload struct {
 	AgentID string `json:"agentId"`
 	Cols    uint16 `json:"cols"`
@@ -58,4 +68,43 @@ type FileWatchPayload struct {
 type AgentStatusPayload struct {
 	AgentID string `json:"agentId"`
 	Status  string `json:"status"`
+}
+
+type AgentNotificationPayload struct {
+	AgentID   string `json:"agentId"`
+	Reason    string `json:"reason"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
+}
+
+type AgentNotificationClearPayload struct {
+	AgentID string `json:"agentId"`
+}
+
+type AgentMetaPayload struct {
+	AgentID        string `json:"agentId"`
+	GitBranch      string `json:"gitBranch,omitempty"`
+	GitDirty       bool   `json:"gitDirty"`
+	GitAhead       int    `json:"gitAhead"`
+	ListeningPorts []int  `json:"listeningPorts,omitempty"`
+}
+
+type AgentMetaStatusPayload struct {
+	AgentID string `json:"agentId"`
+	Key     string `json:"key"`
+	Text    string `json:"text"`
+	Color   string `json:"color,omitempty"`
+}
+
+type AgentMetaProgressPayload struct {
+	AgentID string  `json:"agentId"`
+	Value   float64 `json:"value"`
+	Label   string  `json:"label,omitempty"`
+}
+
+type AgentMetaLogPayload struct {
+	AgentID   string `json:"agentId"`
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
 }

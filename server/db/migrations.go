@@ -47,6 +47,18 @@ ALTER TABLE agents ADD COLUMN color_hue INTEGER DEFAULT 220;
 ALTER TABLE agents ADD COLUMN color_name TEXT DEFAULT 'blue';
 `
 
+const notificationMigration = `
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    message TEXT NOT NULL,
+    read BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(agent_id, read);
+`
+
 func Migrate(db *sql.DB) error {
 	if _, err := db.Exec(schema); err != nil {
 		return err
@@ -61,5 +73,9 @@ func Migrate(db *sql.DB) error {
 	} {
 		db.Exec(stmt)
 	}
+
+	// Notifications table
+	db.Exec(notificationMigration)
+
 	return nil
 }
