@@ -10,6 +10,7 @@ import { FileBottomSheet } from '../components/file/FileBottomSheet';
 import { SubAgentBar } from '../components/animation/SubAgentBar';
 import { SubAgentPanel } from '../components/animation/SubAgentPanel';
 import { StatusBadge } from '../components/layout/StatusBadge';
+import { BrowserPanel } from '../components/browser/BrowserPanel';
 import { useDevice } from '../hooks/useDevice';
 import { useFileExplorer } from '../hooks/useFileExplorer';
 import { useSubAgents } from '../hooks/useSubAgents';
@@ -17,6 +18,7 @@ import { IconBack, IconFiles, IconClose, IconTerminal, AGENT_ICON_MAP } from '..
 import { api } from '../lib/api';
 import { agentDeckWS } from '../lib/ws';
 import { generatePalette } from '../lib/paletteGenerator';
+import { useAppStore } from '../stores/appStore';
 
 type CenterTab = 'terminal' | 'editor';
 
@@ -28,9 +30,12 @@ export function TerminalPage() {
   const [rawMode, setRawMode] = useState(false);
   const [activeTab, setActiveTab] = useState<CenterTab>('terminal');
 
+  const { zoomedPanel, setZoomedPanel } = useAppStore();
+
   // Panels
   const [leftPanelOpen, setLeftPanelOpen] = useState(!isMobile);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<'subagent' | 'browser'>('subagent');
   const [mobileFilesOpen, setMobileFilesOpen] = useState(false);
   const [mobileAnimOpen, setMobileAnimOpen] = useState(false);
   const [leftWidth, setLeftWidth] = useState(220);
@@ -112,6 +117,18 @@ export function TerminalPage() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [rawMode, agentId]);
+
+  // Cmd+Shift+Z: panel zoom toggle
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        setZoomedPanel(zoomedPanel ? null : 'terminal');
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [zoomedPanel, setZoomedPanel]);
 
   const handleOpenFile = useCallback((path: string) => {
     openFile(path);
@@ -329,19 +346,36 @@ export function TerminalPage() {
         </button>
 
         <button
-          onClick={() => setRightPanelOpen(!rightPanelOpen)}
+          onClick={() => { if (rightPanelOpen && rightTab === 'subagent') { setRightPanelOpen(false); } else { setRightPanelOpen(true); setRightTab('subagent'); } }}
           className={`text-xs px-2 py-0.5 rounded transition-colors ${
-            rightPanelOpen ? 'bg-purple-500/20 text-purple-400' : 'bg-deck-bg text-deck-text-dim'
+            rightPanelOpen && rightTab === 'subagent' ? 'bg-purple-500/20 text-purple-400' : 'bg-deck-bg text-deck-text-dim'
           }`}
         >
           Anim
-</button>
+        </button>
+        <button
+          onClick={() => { if (rightPanelOpen && rightTab === 'browser') { setRightPanelOpen(false); } else { setRightPanelOpen(true); setRightTab('browser'); } }}
+          className={`text-xs px-2 py-0.5 rounded transition-colors ${
+            rightPanelOpen && rightTab === 'browser' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-deck-bg text-deck-text-dim'
+          }`}
+        >
+          🌐
+        </button>
+        <button
+          onClick={() => setZoomedPanel(zoomedPanel ? null : 'terminal')}
+          className={`text-xs px-2 py-0.5 rounded transition-colors ${
+            zoomedPanel ? 'bg-amber-500/20 text-amber-400' : 'bg-deck-bg text-deck-text-dim'
+          }`}
+          title="Cmd+Shift+Z"
+        >
+          ⛶
+        </button>
       </header>
 
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: File explorer */}
-        {leftPanelOpen && (
+        {leftPanelOpen && !zoomedPanel && (
           <>
             <div className="shrink-0 flex flex-col" style={{ width: `${leftWidth}px`, borderRight: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
               <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
@@ -419,14 +453,18 @@ export function TerminalPage() {
         </div>
 
         {/* Right: Sub-agent panel */}
-        {rightPanelOpen && (
+        {rightPanelOpen && !zoomedPanel && (
           <>
             <div
               className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-purple-500"
               onMouseDown={(e) => handleMouseDown('right', e)}
             />
             <div className="shrink-0 flex flex-col" style={{ width: `${rightWidth}px`, borderLeft: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
-              <SubAgentPanel subAgents={subAgents} palette={generatePalette(agent?.colorHue ?? 220)} onClose={() => setRightPanelOpen(false)} />
+              {rightTab === 'browser' ? (
+                <BrowserPanel agentId={agentId} onClose={() => setRightPanelOpen(false)} />
+              ) : (
+                <SubAgentPanel subAgents={subAgents} palette={generatePalette(agent?.colorHue ?? 220)} onClose={() => setRightPanelOpen(false)} />
+              )}
             </div>
           </>
         )}
