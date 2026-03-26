@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAppStore } from './stores/appStore';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -27,6 +28,20 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (!window.visualViewport) return;
+
+    const handleResize = () => {
+      const vh = window.visualViewport!.height;
+      document.documentElement.style.setProperty('--app-height', `${vh}px`);
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <BrowserRouter>
       <WebSocketProvider>
