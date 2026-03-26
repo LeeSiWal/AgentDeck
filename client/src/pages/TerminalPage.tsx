@@ -343,8 +343,8 @@ export function TerminalPage() {
         {/* Left: File explorer */}
         {leftPanelOpen && (
           <>
-            <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: `${leftWidth}px`, borderRight: '1px solid var(--deck-border, #1e293b)' }}>
-              <div className="flex-1 overflow-hidden">
+            <div className="shrink-0 flex flex-col" style={{ width: `${leftWidth}px`, borderRight: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
+              <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
                 <FileExplorer
                   tree={tree}
                   changedFiles={changedFiles}
@@ -364,7 +364,7 @@ export function TerminalPage() {
         )}
 
         {/* Center: Terminal + Editor */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
           {/* Tab bar when file is open */}
           {selectedFile && fileContent !== null && (
             <div className="flex shrink-0 bg-deck-surface border-b border-deck-border">
@@ -425,7 +425,7 @@ export function TerminalPage() {
               className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-purple-500"
               onMouseDown={(e) => handleMouseDown('right', e)}
             />
-            <div className="shrink-0 overflow-hidden" style={{ width: `${rightWidth}px`, borderLeft: '1px solid var(--deck-border, #1e293b)' }}>
+            <div className="shrink-0 flex flex-col" style={{ width: `${rightWidth}px`, borderLeft: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
               <SubAgentPanel subAgents={subAgents} palette={generatePalette(agent?.colorHue ?? 220)} onClose={() => setRightPanelOpen(false)} />
             </div>
           </>

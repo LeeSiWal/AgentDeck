@@ -31,6 +31,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
 
   useEffect(() => {
     if (!termRef.current) return;
+    const termContainer = termRef.current;
 
     const terminal = new Terminal({
       fontSize: resolvedFontSize,
@@ -131,7 +132,13 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     };
 
     const ro = new ResizeObserver(handleResize);
-    ro.observe(termRef.current);
+    ro.observe(termContainer);
+
+    // Isolate xterm.js wheel events from parent scroll contexts
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation();
+    };
+    termContainer.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       unsubOutput();
@@ -140,6 +147,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       agentDeckWS.send('terminal:detach', { agentId });
       clearTimeout(resizeTimer);
       ro.disconnect();
+      termContainer.removeEventListener('wheel', handleWheel);
       dataDisposableRef.current?.dispose();
       dataDisposableRef.current = null;
       terminal.dispose();

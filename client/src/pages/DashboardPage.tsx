@@ -66,7 +66,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
         {isMobile ? (
           <AgentList agents={agents} onDestroy={deleteAgent} />
         ) : (
