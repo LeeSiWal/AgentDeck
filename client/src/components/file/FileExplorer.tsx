@@ -74,7 +74,7 @@ export function FileExplorer({ tree, changedFiles, onSelect, onRefresh, onMkdir,
   };
 
   return (
-    <div className="flex flex-col h-full text-sm bg-deck-surface">
+    <div className="flex flex-col h-full text-sm bg-deck-surface overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-deck-border">
         <span className="text-[11px] font-medium uppercase tracking-wider text-deck-text-dim">Explorer</span>
         <div className="flex items-center gap-0.5">
@@ -109,7 +109,7 @@ export function FileExplorer({ tree, changedFiles, onSelect, onRefresh, onMkdir,
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-0.5 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto min-h-0 py-0.5">
         {tree ? (
           tree.children?.map((child) => (
             <TreeNode

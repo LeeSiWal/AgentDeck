@@ -32,12 +32,12 @@ export function LogsPage() {
   }, [fetchLogs]);
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
-      <header className="px-4 py-2 bg-deck-surface border-b border-deck-border">
+    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
+      <header className="px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
         <span className="text-sm font-medium">Logs</span>
       </header>
 
-      <div className="px-4 py-2 border-b border-deck-border">
+      <div className="px-4 py-2 border-b border-deck-border shrink-0">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-deck-surface border border-deck-border">
           <IconSearch size={14} color="#64748b" />
           <input
@@ -51,7 +51,7 @@ export function LogsPage() {
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto min-h-0">
         {loading ? (
           <div className="p-4 text-center text-sm text-deck-text-dim">Loading...</div>
         ) : logs.length === 0 ? (

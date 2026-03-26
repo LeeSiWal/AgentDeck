@@ -44,7 +44,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
       <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
         <div>
           <span className="text-sm font-medium">Dashboard</span>

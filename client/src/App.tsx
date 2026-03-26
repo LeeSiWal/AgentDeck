@@ -29,17 +29,19 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useEffect(() => {
-    if (!window.visualViewport) return;
-
-    const handleResize = () => {
-      const vh = window.visualViewport!.height;
+    const updateHeight = () => {
+      const vh = window.visualViewport?.height || window.innerHeight;
       document.documentElement.style.setProperty('--app-height', `${vh}px`);
     };
 
-    window.visualViewport.addEventListener('resize', handleResize);
-    handleResize();
+    updateHeight();
+    window.visualViewport?.addEventListener('resize', updateHeight);
+    window.addEventListener('resize', updateHeight);
 
-    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateHeight);
+      window.removeEventListener('resize', updateHeight);
+    };
   }, []);
 
   return (

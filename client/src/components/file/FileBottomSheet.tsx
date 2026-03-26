@@ -31,7 +31,7 @@ export function FileBottomSheet({ open, onClose, agentId, workingDir }: FileBott
           <div className="w-10 h-1 rounded-full bg-deck-border" />
         </div>
 
-        <div className="h-[calc(100%-28px)] overflow-hidden flex flex-col">
+        <div className="h-[calc(100%-28px)] overflow-hidden flex flex-col min-h-0">
           {selectedFile && fileContent !== null ? (
             editing ? (
               <FileEditor

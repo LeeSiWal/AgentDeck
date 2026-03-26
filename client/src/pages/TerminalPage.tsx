@@ -186,7 +186,7 @@ export function TerminalPage() {
   // ──────────── MOBILE LAYOUT ────────────
   if (isMobile) {
     return (
-      <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+      <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
         {/* Header */}
         <header className="flex items-center gap-2 px-3 py-2 bg-deck-surface border-b border-deck-border shrink-0">
           <button onClick={() => navigate('/dashboard')} className="p-1.5 -ml-1 rounded active:bg-deck-border/30">
@@ -315,7 +315,7 @@ export function TerminalPage() {
 
   // ──────────── DESKTOP / TABLET LAYOUT ────────────
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-1.5 bg-deck-surface border-b border-deck-border shrink-0">
         <button onClick={() => navigate('/dashboard')} className="p-1 rounded hover:bg-deck-border/30">

@@ -27,7 +27,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-deck-surface">
+    <div className="flex flex-col h-full bg-deck-surface overflow-hidden">
       <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-deck-border shrink-0">
         <button onClick={() => iframeRef.current?.contentWindow?.history.back()} className="p-1 rounded hover:bg-deck-border/50 text-deck-text-dim text-xs">◀</button>
         <button onClick={() => iframeRef.current?.contentWindow?.history.forward()} className="p-1 rounded hover:bg-deck-border/50 text-deck-text-dim text-xs">▶</button>

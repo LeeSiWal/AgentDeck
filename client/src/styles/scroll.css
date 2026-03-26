@@ -1,16 +1,33 @@
 /* ===== Scroll Context Isolation =====
-   Each panel scrolls independently. Parent chain must have
-   explicit height + min-height:0 for flex children.
+   Rules:
+   1. html → body → #root: 100% height, overflow hidden
+   2. Every flex column container in the scroll chain needs min-height: 0
+   3. The scrollable child needs overflow-y: auto + min-height: 0
+   4. Terminal gets touch-action: none (xterm.js manages touch)
+   5. Everything else gets touch-action: pan-y for mobile scroll
 */
 
-/* App shell */
+/* Layer 0: Root chain — lock viewport */
 html, body, #root {
   height: 100%;
   margin: 0;
+  padding: 0;
   overflow: hidden;
 }
 
-/* Scrollbar — unified thin style */
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile keyboard-safe height */
+@supports (height: 100dvh) {
+  body, #root {
+    height: var(--app-height, 100dvh);
+  }
+}
+
+/* Scrollbar — unified thin style (Webkit) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -29,37 +46,19 @@ html, body, #root {
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148,163,184,0.3) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
 
-/* Terminal: touch events handled by xterm.js */
-.terminal-scroll-container {
+/* Terminal touch: xterm.js handles everything */
+.xterm-screen,
+.xterm-viewport {
   touch-action: none;
 }
 
-/* Non-terminal panels: allow vertical touch scroll */
-.panel-scroll {
-  touch-action: pan-y;
+/* Scrollable areas: enable momentum touch scroll */
+.overflow-y-auto,
+[style*="overflow-y: auto"],
+[style*="overflowY: auto"] {
   -webkit-overflow-scrolling: touch;
-}
-
-/* Flex scroll child pattern */
-.flex-scroll-parent {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.flex-scroll-child {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* Mobile keyboard-safe height */
-@supports (height: 100dvh) {
-  #root {
-    height: var(--app-height, 100dvh);
-  }
+  overscroll-behavior: contain;
 }

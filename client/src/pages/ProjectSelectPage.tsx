@@ -40,14 +40,14 @@ export function ProjectSelectPage() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
-      <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border">
+    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
+      <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
         <span className="text-sm font-medium">AgentDeck</span>
         <button onClick={logout} className="p-1.5 rounded hover:bg-deck-border/30" title="Logout">
           <IconLogout size={14} color="#64748b" />
         </button>
       </header>
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto min-h-0">
         <ProjectSelector />
       </main>
     </div>
