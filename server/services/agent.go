@@ -235,3 +235,7 @@ func (s *AgentService) UpdateStatus(id, status string) error {
 	_, err := s.db.Exec("UPDATE agents SET status = ?, updated_at = datetime('now') WHERE id = ?", status, id)
 	return err
 }
+
+func (s *AgentService) SendKeys(tmuxSession, data string) error {
+	return s.tmuxSvc.SendKeys(tmuxSession, data)
+}

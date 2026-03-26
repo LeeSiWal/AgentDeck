@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"agentdeck/services"
 
@@ -18,20 +19,25 @@ var upgrader = websocket.Upgrader{
 }
 
 type Hub struct {
-	clients    sync.Map
-	ptySvc     *services.PtyService
-	watcherSvc *services.WatcherService
-	agentSvc   *services.AgentService
+	clients     sync.Map
+	ptySvc      *services.PtyService
+	watcherSvc  *services.WatcherService
+	agentSvc    *services.AgentService
+	gitSvc      *services.GitService
+	portScanner *services.PortScanner
+	notifSvc    *services.NotificationService
 }
 
-func NewHub(ptySvc *services.PtyService, watcherSvc *services.WatcherService, agentSvc *services.AgentService) *Hub {
+func NewHub(ptySvc *services.PtyService, watcherSvc *services.WatcherService, agentSvc *services.AgentService, gitSvc *services.GitService, portScanner *services.PortScanner, notifSvc *services.NotificationService) *Hub {
 	h := &Hub{
-		ptySvc:     ptySvc,
-		watcherSvc: watcherSvc,
-		agentSvc:   agentSvc,
+		ptySvc:      ptySvc,
+		watcherSvc:  watcherSvc,
+		agentSvc:    agentSvc,
+		gitSvc:      gitSvc,
+		portScanner: portScanner,
+		notifSvc:    notifSvc,
 	}
 
-	// Set up file watcher callback
 	watcherSvc.SetOnChange(func(agentID string, change services.FileChange) {
 		h.BroadcastToAgent(agentID, EventFileChanged, change)
 	})
@@ -40,7 +46,35 @@ func NewHub(ptySvc *services.PtyService, watcherSvc *services.WatcherService, ag
 }
 
 func (h *Hub) Run() {
-	// Hub main loop — currently event-driven via callbacks
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			h.pollMeta()
+		}
+	}()
+}
+
+func (h *Hub) pollMeta() {
+	agents, err := h.agentSvc.List()
+	if err != nil {
+		return
+	}
+	for _, agent := range agents {
+		if agent.Status != "running" {
+			continue
+		}
+		gitInfo := h.gitSvc.Poll(agent.ID, agent.WorkingDir)
+		ports := h.portScanner.Poll(agent.ID, agent.TmuxSession)
+		payload := AgentMetaPayload{
+			AgentID:        agent.ID,
+			GitBranch:      gitInfo.Branch,
+			GitDirty:       gitInfo.Dirty,
+			GitAhead:       gitInfo.Ahead,
+			ListeningPorts: ports,
+		}
+		h.BroadcastAll(EventAgentMeta, payload)
+	}
 }
 
 func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {

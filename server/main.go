@@ -39,9 +39,12 @@ func main() {
 	watcherSvc := services.NewWatcherService()
 	projectSvc := services.NewProjectService(database)
 	authSvc := auth.NewAuthService(cfg.Pin, cfg.JWTSecret)
+	gitSvc := services.NewGitService()
+	portScanner := services.NewPortScanner()
+	notifSvc := services.NewNotificationService(database)
 
 	// WebSocket hub
-	hub := ws.NewHub(ptySvc, watcherSvc, agentSvc)
+	hub := ws.NewHub(ptySvc, watcherSvc, agentSvc, gitSvc, portScanner, notifSvc)
 	go hub.Run()
 
 	// Router
@@ -100,6 +103,18 @@ func main() {
 	// Logs
 	api.HandleFunc("/logs", handlers.SearchLogs(database)).Methods("GET")
 	api.HandleFunc("/logs/{agentId}", handlers.AgentLogs(database)).Methods("GET")
+
+	// Notifications
+	api.HandleFunc("/notifications", handlers.ListNotifications(notifSvc)).Methods("GET")
+	api.HandleFunc("/notifications/clear", handlers.ClearNotifications(notifSvc)).Methods("POST")
+
+	// Agent meta + send
+	api.HandleFunc("/agents/{id}/send", handlers.SendToAgent(agentSvc, hub)).Methods("POST")
+	api.HandleFunc("/agents/{id}/meta", handlers.GetAgentMeta(gitSvc, portScanner, notifSvc)).Methods("GET")
+	api.HandleFunc("/agents/{id}/meta/status", handlers.SetAgentMetaStatus(hub)).Methods("POST")
+	api.HandleFunc("/agents/{id}/meta/progress", handlers.SetAgentMetaProgress(hub)).Methods("POST")
+	api.HandleFunc("/agents/{id}/meta/log", handlers.AddAgentMetaLog(hub)).Methods("POST")
+	api.HandleFunc("/agents/{id}/notifications/read", handlers.MarkAgentNotificationsRead(notifSvc)).Methods("POST")
 
 	// WebSocket (auth via query param)
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
