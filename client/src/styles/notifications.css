@@ -1,0 +1,25 @@
+@keyframes ring-waiting {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  50% { box-shadow: 0 0 12px 3px rgba(59, 130, 246, 0.4); }
+}
+
+@keyframes ring-permission {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.5); }
+}
+
+@keyframes ring-error {
+  0%, 20%, 40%, 60%, 80%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  10%, 30%, 50% { box-shadow: 0 0 12px 3px rgba(239, 68, 68, 0.5); }
+}
+
+@keyframes ring-complete {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  30% { box-shadow: 0 0 16px 4px rgba(16, 185, 129, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.notification-ring-waiting { animation: ring-waiting 2s ease-in-out infinite; }
+.notification-ring-permission { animation: ring-permission 1.5s ease-in-out infinite; }
+.notification-ring-error { animation: ring-error 1s ease-in-out infinite; }
+.notification-ring-complete { animation: ring-complete 2s ease-out forwards; }
