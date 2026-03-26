@@ -1,0 +1,208 @@
+package ws
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+	"sync"
+
+	"agentdeck/services"
+
+	"github.com/gorilla/websocket"
+)
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin:     func(r *http.Request) bool { return true },
+	ReadBufferSize:  65536,
+	WriteBufferSize: 65536,
+}
+
+type Hub struct {
+	clients    sync.Map
+	ptySvc     *services.PtyService
+	watcherSvc *services.WatcherService
+	agentSvc   *services.AgentService
+}
+
+func NewHub(ptySvc *services.PtyService, watcherSvc *services.WatcherService, agentSvc *services.AgentService) *Hub {
+	h := &Hub{
+		ptySvc:     ptySvc,
+		watcherSvc: watcherSvc,
+		agentSvc:   agentSvc,
+	}
+
+	// Set up file watcher callback
+	watcherSvc.SetOnChange(func(agentID string, change services.FileChange) {
+		h.BroadcastToAgent(agentID, EventFileChanged, change)
+	})
+
+	return h
+}
+
+func (h *Hub) Run() {
+	// Hub main loop — currently event-driven via callbacks
+}
+
+func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("WebSocket upgrade error: %v", err)
+		return
+	}
+
+	client := &Client{
+		hub:  h,
+		conn: conn,
+		send: make(chan []byte, 256),
+	}
+	h.clients.Store(client, true)
+
+	go client.writePump()
+	go client.readPump()
+}
+
+func (h *Hub) unregister(c *Client) {
+	h.clients.Delete(c)
+	close(c.send)
+
+	if c.watchingAgent != "" {
+		h.ptySvc.Close(c.watchingAgent)
+		h.watcherSvc.Unwatch(c.watchingAgent)
+	}
+}
+
+func (h *Hub) handleMessage(c *Client, msg WSMessage) {
+	switch msg.Event {
+	case EventTerminalAttach:
+		var payload TerminalAttachPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return
+		}
+		h.handleTerminalAttach(c, payload)
+
+	case EventTerminalDetach:
+		if c.watchingAgent != "" {
+			h.ptySvc.Close(c.watchingAgent)
+			c.watchingAgent = ""
+		}
+
+	case EventTerminalInput:
+		var payload TerminalInputPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return
+		}
+		h.ptySvc.Write(payload.AgentID, []byte(payload.Data))
+
+	case EventTerminalResize:
+		var payload TerminalResizePayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return
+		}
+		h.ptySvc.Resize(payload.AgentID, payload.Cols, payload.Rows)
+
+	case EventFileWatch:
+		var payload FileWatchPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return
+		}
+		h.watcherSvc.Watch(payload.AgentID, payload.Path)
+
+	case EventFileUnwatch:
+		var payload FileWatchPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return
+		}
+		h.watcherSvc.Unwatch(payload.AgentID)
+	}
+}
+
+func (h *Hub) handleTerminalAttach(c *Client, payload TerminalAttachPayload) {
+	agent, err := h.agentSvc.Get(payload.AgentID)
+	if err != nil {
+		log.Printf("Agent not found: %s", payload.AgentID)
+		return
+	}
+
+	// Close previous attachment if any
+	if c.watchingAgent != "" && c.watchingAgent != payload.AgentID {
+		h.ptySvc.Close(c.watchingAgent)
+	}
+
+	c.watchingAgent = payload.AgentID
+
+	// Attach to tmux session via PTY
+	if !h.ptySvc.HasSession(payload.AgentID) {
+		cols := payload.Cols
+		rows := payload.Rows
+		if cols == 0 {
+			cols = 80
+		}
+		if rows == 0 {
+			rows = 24
+		}
+
+		_, err := h.ptySvc.AttachTmux(payload.AgentID, agent.TmuxSession, cols, rows)
+		if err != nil {
+			log.Printf("Failed to attach PTY for %s: %v", payload.AgentID, err)
+			return
+		}
+
+		// Start reading PTY output
+		go h.ptySvc.ReadPump(payload.AgentID, func(data []byte) {
+			h.BroadcastToAgent(payload.AgentID, EventTerminalOutput, TerminalOutputPayload{
+				AgentID: payload.AgentID,
+				Data:    string(data),
+			})
+		})
+	}
+}
+
+func (h *Hub) BroadcastToAgent(agentID string, event string, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	msg := WSMessage{
+		Event:   event,
+		Payload: json.RawMessage(data),
+	}
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+
+	h.clients.Range(func(key, value interface{}) bool {
+		client := key.(*Client)
+		if client.watchingAgent == agentID {
+			select {
+			case client.send <- msgBytes:
+			default:
+			}
+		}
+		return true
+	})
+}
+
+func (h *Hub) BroadcastAll(event string, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	msg := WSMessage{
+		Event:   event,
+		Payload: json.RawMessage(data),
+	}
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+
+	h.clients.Range(func(key, value interface{}) bool {
+		client := key.(*Client)
+		select {
+		case client.send <- msgBytes:
+		default:
+		}
+		return true
+	})
+}

@@ -1,0 +1,436 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { TerminalView } from '../components/terminal/TerminalView';
+import { TerminalInput } from '../components/terminal/TerminalInput';
+import { MobileToolbar } from '../components/terminal/MobileToolbar';
+import { FileExplorer } from '../components/file/FileExplorer';
+import { FilePreview } from '../components/file/FilePreview';
+import { FileEditor } from '../components/file/FileEditor';
+import { FileBottomSheet } from '../components/file/FileBottomSheet';
+import { SubAgentBar } from '../components/animation/SubAgentBar';
+import { SubAgentPanel } from '../components/animation/SubAgentPanel';
+import { StatusBadge } from '../components/layout/StatusBadge';
+import { useDevice } from '../hooks/useDevice';
+import { useFileExplorer } from '../hooks/useFileExplorer';
+import { useSubAgents } from '../hooks/useSubAgents';
+import { IconBack, IconFiles, IconClose, IconTerminal, AGENT_ICON_MAP } from '../components/icons';
+import { api } from '../lib/api';
+import { agentDeckWS } from '../lib/ws';
+import { generatePalette } from '../lib/paletteGenerator';
+
+type CenterTab = 'terminal' | 'editor';
+
+export function TerminalPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { isMobile, isTablet } = useDevice();
+  const [agent, setAgent] = useState<any>(null);
+  const [rawMode, setRawMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<CenterTab>('terminal');
+
+  // Panels
+  const [leftPanelOpen, setLeftPanelOpen] = useState(!isMobile);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [mobileFilesOpen, setMobileFilesOpen] = useState(false);
+  const [mobileAnimOpen, setMobileAnimOpen] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(220);
+  const [rightWidth, setRightWidth] = useState(220);
+  const [editing, setEditing] = useState(false);
+  const resizingRef = useRef<'left' | 'right' | null>(null);
+
+  const agentId = id || '';
+
+  const {
+    tree, selectedFile, fileContent, changedFiles,
+    fetchTree, openFile, saveFile, createDir, deleteFile,
+    setSelectedFile,
+  } = useFileExplorer(agentId || null);
+
+  const { subAgents } = useSubAgents(agentId);
+
+  useEffect(() => {
+    if (agentId) {
+      api.getAgent(agentId).then(setAgent).catch(() => navigate('/dashboard'));
+    }
+  }, [agentId, navigate]);
+
+  // CHAT mode: forward keyboard events to terminal when focus is NOT on an input/textarea
+  // Shift+Tab always forwarded (Claude Code mode cycling: plan/auto/etc.)
+  useEffect(() => {
+    if (!agentId) return;
+
+    const KEY_MAP: Record<string, string> = {
+      ArrowUp: '\x1b[A',
+      ArrowDown: '\x1b[B',
+      ArrowLeft: '\x1b[D',
+      ArrowRight: '\x1b[C',
+      Escape: '\x1b',
+      Tab: '\t',
+    };
+
+    const handler = (e: KeyboardEvent) => {
+      // Shift+Tab → forward to terminal for Claude Code mode switching (all modes)
+      if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        agentDeckWS.send('terminal:input', { agentId, data: '\x1b[Z' });
+        return;
+      }
+
+      // In RAW mode, xterm handles all input directly
+      if (rawMode) return;
+
+      const tag = (e.target as HTMLElement)?.tagName;
+      // Don't intercept if user is typing in input/textarea
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const mapped = KEY_MAP[e.key];
+      if (mapped) {
+        e.preventDefault();
+        agentDeckWS.send('terminal:input', { agentId, data: mapped });
+        return;
+      }
+
+      // Forward single printable characters (y, n, Enter, etc.)
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        agentDeckWS.send('terminal:input', { agentId, data: '\r' });
+        return;
+      }
+
+      // Single character keys (y/n for prompts, number keys for selections)
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        agentDeckWS.send('terminal:input', { agentId, data: e.key });
+      }
+
+      // Ctrl+C
+      if (e.ctrlKey && e.key === 'c') {
+        e.preventDefault();
+        agentDeckWS.send('terminal:input', { agentId, data: '\x03' });
+      }
+    };
+
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [rawMode, agentId]);
+
+  const handleOpenFile = useCallback((path: string) => {
+    openFile(path);
+    setActiveTab('editor');
+    if (isMobile) setMobileFilesOpen(false);
+  }, [openFile, isMobile]);
+
+  const handleCloseFile = useCallback(() => {
+    setSelectedFile(null);
+    setEditing(false);
+    setActiveTab('terminal');
+  }, [setSelectedFile]);
+
+  // Resizable panels (desktop)
+  const handleMouseDown = useCallback((side: 'left' | 'right', e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = side;
+    const startX = e.clientX;
+    const startWidth = side === 'left' ? leftWidth : rightWidth;
+    let rafId = 0;
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const delta = e.clientX - startX;
+        const newWidth = Math.max(150, Math.min(400, side === 'left' ? startWidth + delta : startWidth - delta));
+        if (side === 'left') setLeftWidth(newWidth);
+        else setRightWidth(newWidth);
+      });
+    };
+
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [leftWidth, rightWidth]);
+
+  if (!agentId) return null;
+
+  if (!agent) {
+    return (
+      <div className="flex items-center justify-center h-[100dvh] text-deck-text-dim">Loading...</div>
+    );
+  }
+
+  const AgentIcon = AGENT_ICON_MAP[agent.preset];
+  const fileName = selectedFile ? selectedFile.split('/').pop() || '' : '';
+
+  // ──────────── MOBILE LAYOUT ────────────
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+        {/* Header */}
+        <header className="flex items-center gap-2 px-3 py-2 bg-deck-surface border-b border-deck-border shrink-0">
+          <button onClick={() => navigate('/dashboard')} className="p-1.5 -ml-1 rounded active:bg-deck-border/30">
+            <IconBack size={16} />
+          </button>
+          {AgentIcon && <AgentIcon size={18} />}
+          <span className="font-medium text-sm truncate flex-1">{agent.name}</span>
+          <StatusBadge status={agent.status} />
+          <button
+            onClick={() => setRawMode(!rawMode)}
+            title="Shift+Tab to toggle"
+            className={`text-xs px-2.5 py-1.5 rounded active:opacity-70 ${
+              rawMode ? 'bg-deck-accent/20 text-deck-accent' : 'bg-emerald-500/20 text-emerald-400'
+            }`}
+          >
+            {rawMode ? 'RAW' : 'CHAT'}
+          </button>
+          <button
+            onClick={() => setMobileAnimOpen(true)}
+            className={`p-1.5 rounded active:bg-deck-border/30 ${mobileAnimOpen ? 'bg-purple-500/20' : ''}`}
+            title="Animation"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="8" cy="8" r="3" stroke="#a855f7" strokeWidth="1.2" fill="none" />
+              <circle cx="8" cy="8" r="6" stroke="#a855f7" strokeWidth="0.8" fill="none" strokeDasharray="2 2" />
+              <circle cx="8" cy="4" r="1.2" fill="#a855f7" />
+              <circle cx="11.5" cy="10" r="1.2" fill="#a855f7" opacity="0.6" />
+              <circle cx="4.5" cy="10" r="1.2" fill="#a855f7" opacity="0.6" />
+            </svg>
+          </button>
+          <button onClick={() => setMobileFilesOpen(true)} className="p-1.5 rounded active:bg-deck-border/30">
+            <IconFiles size={16} />
+          </button>
+        </header>
+
+        {/* Tabs when file is open */}
+        {selectedFile && fileContent !== null && (
+          <div className="flex shrink-0 bg-deck-surface border-b border-deck-border">
+            <button
+              onClick={() => setActiveTab('terminal')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm border-r border-deck-border ${
+                activeTab === 'terminal' ? 'bg-deck-bg text-deck-text' : 'text-deck-text-dim'
+              }`}
+            >
+              <IconTerminal size={12} /> Terminal
+            </button>
+            <button
+              onClick={() => setActiveTab('editor')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm ${
+                activeTab === 'editor' ? 'bg-deck-bg text-deck-text' : 'text-deck-text-dim'
+              }`}
+            >
+              {fileName}
+              <button onClick={(e) => { e.stopPropagation(); handleCloseFile(); }} className="p-1 rounded active:bg-deck-border/30 ml-1">
+                <IconClose size={10} />
+              </button>
+            </button>
+          </div>
+        )}
+
+        {/* Sub-agent bar (tap to open animation panel) */}
+        <div onClick={() => setMobileAnimOpen(true)} className="cursor-pointer">
+          <SubAgentBar agentId={agentId} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-h-0 relative">
+          {activeTab === 'terminal' && (
+            <div className="absolute inset-0">
+              <TerminalView agentId={agentId} rawMode={rawMode} />
+            </div>
+          )}
+          {selectedFile && fileContent !== null && activeTab === 'editor' && (
+            <div className="absolute inset-0">
+              {editing ? (
+                <FileEditor
+                  path={selectedFile}
+                  content={fileContent}
+                  onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
+                  onCancel={() => setEditing(false)}
+                />
+              ) : (
+                <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom input */}
+        {rawMode ? (
+          <MobileToolbar agentId={agentId} />
+        ) : (
+          activeTab === 'terminal' && <TerminalInput agentId={agentId} />
+        )}
+
+        {/* File bottom sheet */}
+        <FileBottomSheet
+          open={mobileFilesOpen}
+          onClose={() => setMobileFilesOpen(false)}
+          agentId={agentId}
+          workingDir={agent.workingDir}
+        />
+
+        {/* Animation bottom sheet */}
+        {mobileAnimOpen && (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setMobileAnimOpen(false)} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-xl safe-bottom bg-deck-surface border-t border-deck-border animate-slide-up"
+                 style={{ height: '60dvh' }}>
+              <div className="flex justify-center py-2" onClick={() => setMobileAnimOpen(false)}>
+                <div className="w-10 h-1 rounded-full bg-deck-border" />
+              </div>
+              <div className="h-[calc(100%-28px)] overflow-hidden">
+                <SubAgentPanel
+                  subAgents={subAgents}
+                  palette={generatePalette(agent?.colorHue ?? 220)}
+                  onClose={() => setMobileAnimOpen(false)}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ──────────── DESKTOP / TABLET LAYOUT ────────────
+  return (
+    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+      {/* Header */}
+      <header className="flex items-center gap-2 px-3 py-1.5 bg-deck-surface border-b border-deck-border shrink-0">
+        <button onClick={() => navigate('/dashboard')} className="p-1 rounded hover:bg-deck-border/30">
+          <IconBack size={14} />
+        </button>
+        {AgentIcon && <AgentIcon size={16} />}
+        <span className="font-medium text-sm truncate">{agent.name}</span>
+        <StatusBadge status={agent.status} />
+        <span className="text-xs ml-auto truncate text-deck-text-dim">{agent.workingDir}</span>
+
+        <button
+          onClick={() => setRawMode(!rawMode)}
+          title="Shift+Tab to toggle"
+          className={`text-xs px-2 py-0.5 rounded transition-colors ${
+            rawMode ? 'bg-deck-accent/20 text-deck-accent' : 'bg-emerald-500/20 text-emerald-400'
+          }`}
+        >
+          {rawMode ? 'RAW' : 'CHAT'}
+        </button>
+
+        <button
+          onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+          className={`text-xs px-2 py-0.5 rounded transition-colors ${
+            leftPanelOpen ? 'bg-deck-accent/20 text-deck-accent' : 'bg-deck-bg text-deck-text-dim'
+          }`}
+        >
+          Files
+        </button>
+
+        <button
+          onClick={() => setRightPanelOpen(!rightPanelOpen)}
+          className={`text-xs px-2 py-0.5 rounded transition-colors ${
+            rightPanelOpen ? 'bg-purple-500/20 text-purple-400' : 'bg-deck-bg text-deck-text-dim'
+          }`}
+        >
+          Anim
+</button>
+      </header>
+
+      {/* Three-panel layout */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Left: File explorer */}
+        {leftPanelOpen && (
+          <>
+            <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: `${leftWidth}px`, borderRight: '1px solid var(--deck-border, #1e293b)' }}>
+              <div className="flex-1 overflow-hidden">
+                <FileExplorer
+                  tree={tree}
+                  changedFiles={changedFiles}
+                  onSelect={handleOpenFile}
+                  onRefresh={fetchTree}
+                  onMkdir={createDir}
+                  onDelete={deleteFile}
+                  workingDir={agent.workingDir}
+                />
+              </div>
+            </div>
+            <div
+              className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-deck-accent"
+              onMouseDown={(e) => handleMouseDown('left', e)}
+            />
+          </>
+        )}
+
+        {/* Center: Terminal + Editor */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Tab bar when file is open */}
+          {selectedFile && fileContent !== null && (
+            <div className="flex shrink-0 bg-deck-surface border-b border-deck-border">
+              <button
+                onClick={() => setActiveTab('terminal')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs border-r border-deck-border ${
+                  activeTab === 'terminal' ? 'bg-deck-bg text-deck-text' : 'text-deck-text-dim'
+                }`}
+              >
+                <IconTerminal size={12} /> Terminal
+              </button>
+              <button
+                onClick={() => setActiveTab('editor')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs border-r border-deck-border ${
+                  activeTab === 'editor' ? 'bg-deck-bg text-deck-text' : 'text-deck-text-dim'
+                }`}
+              >
+                {fileName}
+                <button onClick={(e) => { e.stopPropagation(); handleCloseFile(); }}
+                        className="p-0.5 rounded hover:bg-deck-border/30 ml-1">
+                  <IconClose size={8} />
+                </button>
+              </button>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 relative">
+            {activeTab === 'terminal' && (
+              <div className="absolute inset-0">
+                <TerminalView agentId={agentId} rawMode={rawMode} />
+              </div>
+            )}
+            {selectedFile && fileContent !== null && activeTab === 'editor' && (
+              <div className="absolute inset-0">
+                {editing ? (
+                  <FileEditor
+                    path={selectedFile}
+                    content={fileContent}
+                    onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
+                    onCancel={() => setEditing(false)}
+                  />
+                ) : (
+                  <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom input - CHAT mode shows TerminalInput on ALL devices */}
+          {!rawMode && activeTab === 'terminal' && <TerminalInput agentId={agentId} />}
+        </div>
+
+        {/* Right: Sub-agent panel */}
+        {rightPanelOpen && (
+          <>
+            <div
+              className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-purple-500"
+              onMouseDown={(e) => handleMouseDown('right', e)}
+            />
+            <div className="shrink-0 overflow-hidden" style={{ width: `${rightWidth}px`, borderLeft: '1px solid var(--deck-border, #1e293b)' }}>
+              <SubAgentPanel subAgents={subAgents} palette={generatePalette(agent?.colorHue ?? 220)} onClose={() => setRightPanelOpen(false)} />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

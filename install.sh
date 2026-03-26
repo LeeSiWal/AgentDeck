@@ -1,0 +1,245 @@
+#!/bin/bash
+set -e
+
+# ================================================
+#  AgentDeck - One-Click Installer
+# ================================================
+
+INSTALL_DIR="$HOME/.agentdeck"
+BIN_NAME="agentdeck"
+
+echo ""
+echo "  ================================================"
+echo "     AgentDeck Installer"
+echo "  ================================================"
+echo ""
+
+# ── 1. Check OS ──
+OS=$(uname -s)
+ARCH=$(uname -m)
+echo "  System: $OS $ARCH"
+
+if [ "$OS" != "Darwin" ] && [ "$OS" != "Linux" ]; then
+    echo "  ❌ Unsupported OS: $OS"
+    echo "  Windows users: run install.ps1 instead"
+    exit 1
+fi
+
+# Detect WSL
+IS_WSL=false
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    IS_WSL=true
+    echo "  Running inside WSL"
+fi
+
+# ── 2. Install Homebrew (macOS only, if missing) ──
+if [ "$OS" = "Darwin" ]; then
+    if ! command -v brew &>/dev/null; then
+        echo "  Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+        # Add to PATH for Apple Silicon
+        if [ -f /opt/homebrew/bin/brew ]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        fi
+        echo "  ✓ Homebrew installed"
+    else
+        echo "  ✓ Homebrew found"
+    fi
+fi
+
+# ── 3. Install tmux (required) ──
+if ! command -v tmux &>/dev/null; then
+    echo "  Installing tmux..."
+    if [ "$OS" = "Darwin" ]; then
+        brew install tmux
+    else
+        sudo apt-get update -qq && sudo apt-get install -y -qq tmux
+    fi
+    echo "  ✓ tmux installed"
+else
+    echo "  ✓ tmux found ($(tmux -V))"
+fi
+
+# ── 4. Install Go (for building) ──
+if ! command -v go &>/dev/null; then
+    echo "  Installing Go..."
+    if [ "$OS" = "Darwin" ]; then
+        brew install go
+    else
+        sudo apt-get install -y -qq golang
+    fi
+    echo "  ✓ Go installed"
+else
+    echo "  ✓ Go found ($(go version | awk '{print $3}'))"
+fi
+
+# ── 5a. Install Node.js (if missing, needed for pnpm/frontend) ──
+if ! command -v node &>/dev/null; then
+    echo "  Installing Node.js..."
+    if [ "$OS" = "Darwin" ]; then
+        brew install node
+    else
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - 2>/dev/null
+        sudo apt-get install -y -qq nodejs 2>/dev/null || {
+            # Fallback: use nvm
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install --lts
+        }
+    fi
+    echo "  ✓ Node.js installed ($(node -v))"
+else
+    echo "  ✓ Node.js found ($(node -v))"
+fi
+
+# ── 5b. Install pnpm (for building frontend) ──
+if ! command -v pnpm &>/dev/null; then
+    echo "  Installing pnpm..."
+    npm install -g pnpm 2>/dev/null || brew install pnpm 2>/dev/null || {
+        curl -fsSL https://get.pnpm.io/install.sh | sh -
+    }
+    echo "  ✓ pnpm installed"
+else
+    echo "  ✓ pnpm found"
+fi
+
+# ── 6. Build AgentDeck ──
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo ""
+echo "  Building AgentDeck..."
+
+cd "$SCRIPT_DIR"
+cd client && pnpm install --silent && pnpm build --silent 2>/dev/null
+cd ..
+rm -rf server/static
+cp -r client/dist server/static
+cd server && CGO_ENABLED=1 go build -o "../$BIN_NAME" .
+cd ..
+
+echo "  ✓ Build complete"
+
+# ── 7. Install to ~/.agentdeck ──
+echo ""
+echo "  Installing to $INSTALL_DIR ..."
+
+mkdir -p "$INSTALL_DIR"
+cp "$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+chmod +x "$INSTALL_DIR/$BIN_NAME"
+
+# Copy .env if exists, otherwise it will auto-generate on first run
+if [ -f .env ]; then
+    cp .env "$INSTALL_DIR/.env"
+fi
+
+echo "  ✓ Installed"
+
+# ── 8. Create launcher ──
+if [ "$OS" = "Darwin" ]; then
+    # Create macOS .command file (double-clickable)
+    LAUNCHER="$HOME/Desktop/AgentDeck.command"
+    cat > "$LAUNCHER" << 'LAUNCHER_EOF'
+#!/bin/bash
+cd "$HOME/.agentdeck"
+./agentdeck
+LAUNCHER_EOF
+    chmod +x "$LAUNCHER"
+    echo "  ✓ Desktop shortcut created: AgentDeck.command"
+
+    # Also create a .app bundle for cleaner experience
+    APP_DIR="$HOME/Applications/AgentDeck.app/Contents/MacOS"
+    mkdir -p "$APP_DIR"
+    cat > "$APP_DIR/AgentDeck" << 'APP_EOF'
+#!/bin/bash
+cd "$HOME/.agentdeck"
+exec ./agentdeck
+APP_EOF
+    chmod +x "$APP_DIR/AgentDeck"
+
+    # Info.plist
+    cat > "$HOME/Applications/AgentDeck.app/Contents/Info.plist" << 'PLIST_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>AgentDeck</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.agentdeck.app</string>
+    <key>CFBundleName</key>
+    <string>AgentDeck</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+</dict>
+</plist>
+PLIST_EOF
+    echo "  ✓ App created: ~/Applications/AgentDeck.app"
+fi
+
+if [ "$OS" = "Linux" ]; then
+    # Create .desktop file
+    DESKTOP_FILE="$HOME/.local/share/applications/agentdeck.desktop"
+    mkdir -p "$(dirname "$DESKTOP_FILE")"
+    cat > "$DESKTOP_FILE" << DESKTOP_EOF
+[Desktop Entry]
+Name=AgentDeck
+Exec=$INSTALL_DIR/$BIN_NAME
+Terminal=true
+Type=Application
+Categories=Development;
+DESKTOP_EOF
+    echo "  ✓ Desktop entry created"
+fi
+
+# ── 9. Check for AI CLI tools ──
+echo ""
+echo "  ── AI Tools ──"
+if command -v claude &>/dev/null; then
+    echo "  ✓ Claude Code found"
+else
+    echo "  ○ Claude Code not found (install: npm install -g @anthropic-ai/claude-code)"
+fi
+if command -v gemini &>/dev/null; then
+    echo "  ✓ Gemini CLI found"
+else
+    echo "  ○ Gemini CLI not found"
+fi
+if command -v codex &>/dev/null; then
+    echo "  ✓ Codex CLI found"
+else
+    echo "  ○ Codex CLI not found"
+fi
+
+# ── Done ──
+echo ""
+echo "  ================================================"
+echo "     Installation complete!"
+echo "  ================================================"
+echo ""
+echo "  How to start:"
+echo ""
+if [ "$OS" = "Darwin" ]; then
+    echo "    Option 1: Double-click 'AgentDeck.command' on Desktop"
+    echo "    Option 2: Open 'AgentDeck' from ~/Applications"
+    echo "    Option 3: Run '$INSTALL_DIR/$BIN_NAME'"
+else
+    echo "    Run: $INSTALL_DIR/$BIN_NAME"
+fi
+echo ""
+echo "  First time? A PIN will be auto-generated."
+echo "  The browser will open automatically."
+echo ""
+echo "  ================================================"
+echo ""
+
+# Ask to launch now
+read -p "  Launch AgentDeck now? [Y/n] " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+    cd "$INSTALL_DIR"
+    ./$BIN_NAME
+fi

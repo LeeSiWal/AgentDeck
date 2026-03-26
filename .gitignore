@@ -1,0 +1,8 @@
+agentdeck
+agentdeck.db
+.env
+node_modules/
+client/dist/
+server/static/
+.DS_Store
+*.log

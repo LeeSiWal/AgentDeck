@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-deck-bg text-deck-text antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overscroll-behavior: none;
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  #root {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.deck.border');
+    border-radius: 2px;
+  }
+
+  /* iOS safe areas */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Focus ring */
+  *:focus-visible {
+    outline: 2px solid theme('colors.deck.accent');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-deck-surface/80 backdrop-blur-xl border border-deck-border;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-deck-accent hover:bg-deck-accent-light text-white rounded-lg transition-colors font-medium;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-deck-danger/20 hover:bg-deck-danger/30 text-deck-danger rounded-lg transition-colors font-medium;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 hover:bg-deck-border/50 text-deck-text-dim rounded-lg transition-colors;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 bg-deck-bg border border-deck-border rounded-lg text-deck-text placeholder-deck-text-dim focus:border-deck-accent focus:ring-1 focus:ring-deck-accent;
+  }
+
+  .card {
+    @apply bg-deck-surface border border-deck-border rounded-xl p-4;
+  }
+
+  /* Terminal specific */
+  .xterm-viewport::-webkit-scrollbar {
+    width: 4px;
+  }
+  .xterm-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+}
