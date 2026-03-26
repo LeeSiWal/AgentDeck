@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { TerminalPage } from './pages/TerminalPage';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { CommandPalette } from './components/CommandPalette';
 
 function AuthGuard() {
   const { isAuthenticated } = useAppStore();
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <WebSocketProvider>
+        <CommandPalette />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
