@@ -23,7 +23,7 @@ export function BottomNav() {
           elements.push(
             <button
               key="new-agent"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/?new=1')}
               className="flex flex-col items-center gap-1 py-2 px-5"
             >
               <div className="w-10 h-10 rounded-full bg-deck-accent flex items-center justify-center shadow-lg">

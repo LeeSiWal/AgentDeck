@@ -54,7 +54,7 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/"
+            to="/?new=1"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-deck-accent text-white text-xs font-medium active:opacity-80"
           >
             <IconPlus size={14} />
