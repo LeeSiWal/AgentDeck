@@ -45,28 +45,22 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
-      <header className="flex items-center justify-between px-4 py-2.5 bg-deck-surface border-b border-deck-border shrink-0">
-        <div className="flex items-center gap-2">
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 px-3 py-2 -ml-1 rounded-lg active:bg-deck-border/30 hover:bg-deck-border/30"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 12L2 8l4-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <span className="text-xs text-deck-text-dim">Projects</span>
-          </Link>
+      <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
+        <div>
           <span className="text-sm font-medium">Dashboard</span>
-          <span className="text-xs text-deck-text-dim">
+          <span className="text-xs text-deck-text-dim ml-2">
             {runningAgents.length} running
           </span>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-deck-accent/10 text-deck-accent active:bg-deck-accent/20 hover:bg-deck-accent/20"
-          title="New Agent"
-        >
-          <IconPlus size={14} />
-          <span className="text-xs font-medium">New</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-deck-accent text-white text-xs font-medium active:opacity-80"
+          >
+            <IconPlus size={14} />
+            <span>프로젝트 추가</span>
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
