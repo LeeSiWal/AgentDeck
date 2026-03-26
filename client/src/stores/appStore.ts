@@ -24,6 +24,23 @@ export interface SubAgent {
   completedAt?: number;
 }
 
+export interface AgentNotification {
+  id?: number;
+  agentId: string;
+  reason: 'permission_request' | 'waiting_input' | 'error' | 'task_complete';
+  message: string;
+  timestamp: string;
+}
+
+export interface AgentMeta {
+  gitBranch: string;
+  gitDirty: boolean;
+  gitAhead: number;
+  listeningPorts: number[];
+  customStatus?: { key: string; text: string; color?: string };
+  progress?: { value: number; label?: string };
+}
+
 interface AppState {
   // Auth
   isAuthenticated: boolean;
@@ -56,6 +73,25 @@ interface AppState {
   // UI state
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
+
+  // Notifications
+  notifications: Map<string, AgentNotification[]>;
+  addNotification: (n: AgentNotification) => void;
+  clearNotifications: (agentId: string) => void;
+
+  // Agent meta
+  agentMeta: Map<string, AgentMeta>;
+  setAgentMeta: (agentId: string, meta: AgentMeta) => void;
+  updateAgentMetaStatus: (agentId: string, status: { key: string; text: string; color?: string }) => void;
+  updateAgentMetaProgress: (agentId: string, progress: { value: number; label?: string }) => void;
+
+  // Panel zoom
+  zoomedPanel: 'terminal' | 'files' | 'subagent' | 'browser' | null;
+  setZoomedPanel: (panel: 'terminal' | 'files' | 'subagent' | 'browser' | null) => void;
+
+  // Command palette
+  commandPaletteOpen: boolean;
+  setCommandPaletteOpen: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -124,4 +160,48 @@ export const useAppStore = create<AppState>((set) => ({
 
   sidebarOpen: false,
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
+
+  notifications: new Map(),
+  addNotification: (n) =>
+    set((s) => {
+      const m = new Map(s.notifications);
+      const existing = m.get(n.agentId) || [];
+      m.set(n.agentId, [...existing.slice(-19), n]);
+      return { notifications: m };
+    }),
+  clearNotifications: (agentId) =>
+    set((s) => {
+      const m = new Map(s.notifications);
+      m.delete(agentId);
+      return { notifications: m };
+    }),
+
+  agentMeta: new Map(),
+  setAgentMeta: (agentId, meta) =>
+    set((s) => {
+      const m = new Map(s.agentMeta);
+      const existing = m.get(agentId);
+      m.set(agentId, { ...existing, ...meta } as AgentMeta);
+      return { agentMeta: m };
+    }),
+  updateAgentMetaStatus: (agentId, status) =>
+    set((s) => {
+      const m = new Map(s.agentMeta);
+      const existing = m.get(agentId) || { gitBranch: '', gitDirty: false, gitAhead: 0, listeningPorts: [] };
+      m.set(agentId, { ...existing, customStatus: status });
+      return { agentMeta: m };
+    }),
+  updateAgentMetaProgress: (agentId, progress) =>
+    set((s) => {
+      const m = new Map(s.agentMeta);
+      const existing = m.get(agentId) || { gitBranch: '', gitDirty: false, gitAhead: 0, listeningPorts: [] };
+      m.set(agentId, { ...existing, progress });
+      return { agentMeta: m };
+    }),
+
+  zoomedPanel: null,
+  setZoomedPanel: (panel) => set({ zoomedPanel: panel }),
+
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
 }));

@@ -135,6 +135,25 @@ export const api = {
   agentLogs: (agentId: string, limit?: number) =>
     apiFetch(`/logs/${agentId}${limit ? `?limit=${limit}` : ''}`),
 
+  // Notifications
+  listNotifications: (agentId?: string) =>
+    apiFetch(`/notifications${agentId ? `?agentId=${agentId}` : ''}`),
+  clearNotifications: (agentId?: string) =>
+    apiFetch(`/notifications/clear${agentId ? `?agentId=${agentId}` : ''}`, { method: 'POST' }),
+  markNotificationsRead: (agentId: string) =>
+    apiFetch(`/agents/${agentId}/notifications/read`, { method: 'POST' }),
+
+  // Agent meta
+  getAgentMeta: (id: string) => apiFetch(`/agents/${id}/meta`),
+  sendToAgent: (id: string, data: string) =>
+    apiFetch(`/agents/${id}/send`, { method: 'POST', body: JSON.stringify({ data }) }),
+  setAgentStatus: (id: string, key: string, text: string, color?: string) =>
+    apiFetch(`/agents/${id}/meta/status`, { method: 'POST', body: JSON.stringify({ key, text, color }) }),
+  setAgentProgress: (id: string, value: number, label?: string) =>
+    apiFetch(`/agents/${id}/meta/progress`, { method: 'POST', body: JSON.stringify({ value, label }) }),
+  addAgentLog: (id: string, level: string, message: string) =>
+    apiFetch(`/agents/${id}/meta/log`, { method: 'POST', body: JSON.stringify({ level, message }) }),
+
   getToken,
   clearTokens,
 };
