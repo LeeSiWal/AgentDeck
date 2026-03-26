@@ -1,0 +1,65 @@
+/* ===== Scroll Context Isolation =====
+   Each panel scrolls independently. Parent chain must have
+   explicit height + min-height:0 for flex children.
+*/
+
+/* App shell */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Scrollbar — unified thin style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.3) transparent;
+}
+
+/* Terminal: touch events handled by xterm.js */
+.terminal-scroll-container {
+  touch-action: none;
+}
+
+/* Non-terminal panels: allow vertical touch scroll */
+.panel-scroll {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Flex scroll child pattern */
+.flex-scroll-parent {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.flex-scroll-child {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Mobile keyboard-safe height */
+@supports (height: 100dvh) {
+  #root {
+    height: var(--app-height, 100dvh);
+  }
+}
