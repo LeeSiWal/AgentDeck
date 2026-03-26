@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"agentdeck/auth"
+	"agentdeck/cli"
 	"agentdeck/config"
 	"agentdeck/db"
 	"agentdeck/handlers"
@@ -28,6 +29,10 @@ import (
 var staticFiles embed.FS
 
 func main() {
+	if cli.IsSubcommand(os.Args) {
+		cli.Run(os.Args[1:])
+		return
+	}
 	cfg := config.Load()
 	database := db.Init(cfg.DBPath)
 
