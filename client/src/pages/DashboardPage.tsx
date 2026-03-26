@@ -45,25 +45,28 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
-      <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border">
-        <div>
+      <header className="flex items-center justify-between px-4 py-2.5 bg-deck-surface border-b border-deck-border shrink-0">
+        <div className="flex items-center gap-2">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 px-3 py-2 -ml-1 rounded-lg active:bg-deck-border/30 hover:bg-deck-border/30"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 12L2 8l4-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <span className="text-xs text-deck-text-dim">Projects</span>
+          </Link>
           <span className="text-sm font-medium">Dashboard</span>
-          <span className="text-xs text-deck-text-dim ml-2">
+          <span className="text-xs text-deck-text-dim">
             {runningAgents.length} running
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="p-1.5 rounded hover:bg-deck-border/30"
-            title="New Agent"
-          >
-            <IconPlus size={16} />
-          </button>
-          <Link to="/" className="text-xs px-2 py-1 rounded bg-deck-surface text-deck-text-dim hover:bg-deck-border/30">
-            Projects
-          </Link>
-        </div>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-deck-accent/10 text-deck-accent active:bg-deck-accent/20 hover:bg-deck-accent/20"
+          title="New Agent"
+        >
+          <IconPlus size={14} />
+          <span className="text-xs font-medium">New</span>
+        </button>
       </header>
 
       <main className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>

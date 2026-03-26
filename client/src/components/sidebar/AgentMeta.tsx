@@ -11,17 +11,20 @@ export function AgentMeta({ agentId, compact = false }: AgentMetaProps) {
   if (!meta) return null;
 
   if (compact) {
+    const hasContent = meta.gitBranch || (meta.listeningPorts && meta.listeningPorts.length > 0);
+    if (!hasContent) return null;
     return (
-      <div className="flex items-center gap-2 text-[11px] text-deck-text-dim truncate">
+      <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] text-deck-text-dim truncate border-t border-deck-border/30">
         {meta.gitBranch && (
           <span className="flex items-center gap-0.5">
-            🌿{meta.gitBranch}
-            {meta.gitDirty && <span className="text-amber-400">●</span>}
+            🌿 {meta.gitBranch}
+            {meta.gitAhead > 0 && <span className="text-blue-400 ml-0.5">(+{meta.gitAhead})</span>}
+            {meta.gitDirty && <span className="text-amber-400 ml-0.5">●</span>}
           </span>
         )}
         {meta.listeningPorts && meta.listeningPorts.length > 0 && (
           <span className="flex items-center gap-0.5">
-            🔌{meta.listeningPorts.map(p => `:${p}`).join(' ')}
+            🔌 {meta.listeningPorts.map(p => `:${p}`).join(' ')}
           </span>
         )}
       </div>
