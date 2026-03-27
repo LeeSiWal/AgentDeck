@@ -8,6 +8,7 @@ Go 단일 바이너리로 빌드되어 설치가 간편합니다.
 ![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-embedded-003B57?logo=sqlite&logoColor=white)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ---
 
@@ -331,4 +332,9 @@ PIN 입력 → POST /api/auth/login → JWT (7일) + Refresh Token (30일)
 
 ## 라이선스
 
-MIT
+AgentDeck은 듀얼 라이선스로 배포됩니다:
+
+- **오픈소스**: [AGPL-3.0](LICENSE) — 오픈소스 프로젝트는 무료
+- **상업용**: [Commercial License](LICENSE-COMMERCIAL.md) — SaaS/클로즈드소스 제품에 사용 시
+
+상업용 라이선스 문의: GitHub 이슈에 `commercial-license` 레이블로 남겨주세요.
