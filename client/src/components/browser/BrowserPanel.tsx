@@ -1,27 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { IconClose } from '../icons';
+import { api } from '../../lib/api';
 
 interface BrowserPanelProps {
   agentId: string;
   onClose: () => void;
-}
-
-function getIframeSrc(inputUrl: string): string {
-  if (!inputUrl) return '';
-  const normalized = inputUrl.startsWith('http') ? inputUrl : `http://${inputUrl}`;
-  try {
-    const parsed = new URL(normalized);
-    const host = parsed.hostname.toLowerCase();
-    // localhost/127.0.0.1 → direct connection (no proxy needed)
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
-      return normalized;
-    }
-    // External URL → route through server proxy to bypass X-Frame-Options
-    return `/api/proxy?url=${encodeURIComponent(normalized)}`;
-  } catch {
-    return normalized;
-  }
 }
 
 function isLocalUrl(inputUrl: string): boolean {
@@ -37,28 +21,67 @@ function isLocalUrl(inputUrl: string): boolean {
 export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
   const meta = useAppStore((s) => s.agentMeta.get(agentId));
   const ports = meta?.listeningPorts || [];
-  const [displayUrl, setDisplayUrl] = useState('');  // What user sees in URL bar
-  const [iframeSrc, setIframeSrc] = useState('');     // Actual iframe src (may be proxy)
-  const [error, setError] = useState(false);
+  const [displayUrl, setDisplayUrl] = useState('');
+  const [iframeSrc, setIframeSrc] = useState('');       // For localhost direct
+  const [srcdoc, setSrcdoc] = useState('');              // For external via proxy
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Auto-navigate to first detected port
   useEffect(() => {
     if (!displayUrl && ports.length > 0) {
       const autoUrl = `http://localhost:${ports[0]}`;
-      setDisplayUrl(autoUrl);
-      setIframeSrc(autoUrl);
+      navigateTo(autoUrl);
     }
   }, [ports, displayUrl]);
 
-  const navigateTo = (newUrl: string) => {
+  const navigateTo = async (newUrl: string) => {
     let normalized = newUrl.trim();
-    if (normalized && !normalized.startsWith('http')) {
+    if (!normalized) return;
+    if (!normalized.startsWith('http')) {
       normalized = `http://${normalized}`;
     }
+
     setDisplayUrl(normalized);
-    setIframeSrc(getIframeSrc(normalized));
-    setError(false);
+    setError('');
+    setSrcdoc('');
+    setIframeSrc('');
+
+    if (isLocalUrl(normalized)) {
+      // Localhost: direct iframe
+      setIframeSrc(normalized);
+    } else {
+      // External: fetch via proxy → srcdoc
+      setLoading(true);
+      try {
+        const token = api.getToken();
+        const res = await fetch(`/api/proxy?url=${encodeURIComponent(normalized)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!res.ok) {
+          setError(`Failed to load (${res.status})`);
+          setLoading(false);
+          return;
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+          // HTML response wrapped in JSON for srcdoc
+          const data = await res.json();
+          setSrcdoc(data.html || '');
+        } else {
+          // Non-HTML — can't srcdoc, open in new tab
+          setError('이 콘텐츠는 iframe에서 표시할 수 없습니다.');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Fetch failed');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const isLocal = isLocalUrl(displayUrl);
@@ -68,7 +91,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
       <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-deck-border shrink-0">
         <button onClick={() => iframeRef.current?.contentWindow?.history.back()} className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs">◀</button>
         <button onClick={() => iframeRef.current?.contentWindow?.history.forward()} className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs">▶</button>
-        <button onClick={() => { if (iframeRef.current) iframeRef.current.src = iframeSrc; }} className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs">↻</button>
+        <button onClick={() => navigateTo(displayUrl)} className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs">↻</button>
 
         <form onSubmit={(e) => { e.preventDefault(); navigateTo(displayUrl); }} className="flex-1 flex">
           <input
@@ -80,11 +103,8 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
           />
         </form>
 
-        {/* Open in new tab */}
         {displayUrl && (
-          <a href={displayUrl} target="_blank" rel="noopener" className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs" title="새 탭에서 열기">
-            ↗
-          </a>
+          <a href={displayUrl} target="_blank" rel="noopener" className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50 text-deck-text-dim text-xs" title="새 탭에서 열기">↗</a>
         )}
 
         <button onClick={onClose} className="p-1.5 rounded hover:bg-deck-border/50 active:bg-deck-border/50">
@@ -110,7 +130,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
         )}
       </div>
 
-      {/* iframe wrapper with iOS Safari scroll fix */}
+      {/* Content area */}
       <div
         className="flex-1 min-h-0"
         style={{
@@ -119,41 +139,42 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
           overscrollBehavior: 'contain',
         }}
       >
-        {iframeSrc ? (
-          <>
-            {error ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                <p className="text-sm text-deck-text-dim mb-3">이 페이지를 로드할 수 없습니다.</p>
-                <a
-                  href={displayUrl}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-sm px-4 py-2 rounded-lg bg-deck-accent text-white active:opacity-80"
-                >
-                  새 탭에서 열기
-                </a>
-              </div>
-            ) : (
-              <iframe
-                ref={iframeRef}
-                src={iframeSrc}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-                onError={() => setError(true)}
-                onLoad={() => {
-                  try {
-                    const doc = iframeRef.current?.contentDocument;
-                    if (doc && doc.body && doc.body.innerHTML === '') {
-                      setError(true);
-                    }
-                  } catch {
-                    // Cross-origin through proxy — normal
-                  }
-                }}
-              />
+        {loading && (
+          <div className="flex items-center justify-center h-full text-sm text-deck-text-dim">
+            로딩 중...
+          </div>
+        )}
+
+        {error && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            <p className="text-sm text-deck-text-dim mb-3">{error}</p>
+            {displayUrl && (
+              <a href={displayUrl} target="_blank" rel="noopener" className="text-sm px-4 py-2 rounded-lg bg-deck-accent text-white active:opacity-80">
+                새 탭에서 열기
+              </a>
             )}
-          </>
-        ) : (
+          </div>
+        )}
+
+        {!loading && !error && iframeSrc && (
+          <iframe
+            ref={iframeRef}
+            src={iframeSrc}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+          />
+        )}
+
+        {!loading && !error && srcdoc && (
+          <iframe
+            ref={iframeRef}
+            srcDoc={srcdoc}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+          />
+        )}
+
+        {!loading && !error && !iframeSrc && !srcdoc && (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
             <p className="text-sm text-deck-text-dim mb-1">
               {ports.length === 0 ? '감지된 포트 없음' : 'URL을 입력하세요'}

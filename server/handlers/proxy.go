@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -39,7 +41,6 @@ func ProxyHandler() http.HandlerFunc {
 			return
 		}
 
-		// Block localhost proxying (use direct connection)
 		host := strings.ToLower(parsed.Hostname())
 		if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
 			jsonError(w, "use direct connection for localhost", http.StatusBadRequest)
@@ -52,7 +53,6 @@ func ProxyHandler() http.HandlerFunc {
 			return
 		}
 
-		// Forward a reasonable User-Agent
 		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; AgentDeck/1.0)")
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9,ko;q=0.8")
@@ -64,21 +64,75 @@ func ProxyHandler() http.HandlerFunc {
 		}
 		defer resp.Body.Close()
 
-		// Remove iframe-blocking headers
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxProxyResponseSize))
+		if err != nil {
+			jsonError(w, "read error", http.StatusBadGateway)
+			return
+		}
+
+		contentType := resp.Header.Get("Content-Type")
+
+		// For HTML: rewrite relative URLs to absolute and return as srcdoc-ready JSON
+		if strings.Contains(contentType, "text/html") {
+			baseURL := parsed.Scheme + "://" + parsed.Host
+			html := rewriteRelativeURLs(string(body), baseURL, targetURL)
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"html":       html,
+				"statusCode": resp.StatusCode,
+				"url":        targetURL,
+			})
+			return
+		}
+
+		// Non-HTML: pass through as-is (images, CSS, JS, etc.)
 		resp.Header.Del("X-Frame-Options")
 		resp.Header.Del("Content-Security-Policy")
 		resp.Header.Del("Cross-Origin-Embedder-Policy")
 		resp.Header.Del("Cross-Origin-Opener-Policy")
 		resp.Header.Del("Cross-Origin-Resource-Policy")
 
-		// Copy response headers
 		for key, vals := range resp.Header {
 			for _, val := range vals {
 				w.Header().Add(key, val)
 			}
 		}
-
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, io.LimitReader(resp.Body, maxProxyResponseSize))
+		w.Write(body)
 	}
+}
+
+var (
+	srcRe    = regexp.MustCompile(`(src|href|action)\s*=\s*"(/[^"]*)"`)
+	srcSqRe  = regexp.MustCompile(`(src|href|action)\s*=\s*'(/[^']*)'`)
+	srcsetRe = regexp.MustCompile(`(srcset)\s*=\s*"([^"]*)"`)
+)
+
+func rewriteRelativeURLs(html, baseURL, pageURL string) string {
+	// Inject <base href> so relative URLs resolve correctly
+	baseTag := `<base href="` + pageURL + `" />`
+	if strings.Contains(strings.ToLower(html), "<head") {
+		html = strings.Replace(html, "<head>", "<head>"+baseTag, 1)
+		html = strings.Replace(html, "<HEAD>", "<HEAD>"+baseTag, 1)
+		// Handle <head with attributes
+		headIdx := strings.Index(strings.ToLower(html), "<head")
+		if headIdx >= 0 {
+			closeIdx := strings.Index(html[headIdx:], ">")
+			if closeIdx >= 0 {
+				insertPos := headIdx + closeIdx + 1
+				if !strings.Contains(html[:insertPos+10], "<base") {
+					html = html[:insertPos] + baseTag + html[insertPos:]
+				}
+			}
+		}
+	} else {
+		html = baseTag + html
+	}
+
+	// Rewrite /path URLs to absolute baseURL/path
+	html = srcRe.ReplaceAllString(html, `${1}="`+baseURL+`${2}"`)
+	html = srcSqRe.ReplaceAllString(html, `${1}='`+baseURL+`${2}'`)
+
+	return html
 }
