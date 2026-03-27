@@ -12,6 +12,13 @@
   </head>
   <body class="bg-deck-bg text-deck-text">
     <div id="root"></div>
+    <script>
+      // Set --app-height BEFORE React loads to prevent layout flash on refresh
+      (function() {
+        var h = (window.visualViewport ? window.visualViewport.height : window.innerHeight) + 'px';
+        document.documentElement.style.setProperty('--app-height', h);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
