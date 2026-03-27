@@ -141,7 +141,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     const handleTouchMove = (e: TouchEvent) => {
       e.stopPropagation();
     };
-    termContainer.addEventListener('wheel', handleWheel, { passive: false });
+    termContainer.addEventListener('wheel', handleWheel, { passive: true });
     termContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
 
     return () => {

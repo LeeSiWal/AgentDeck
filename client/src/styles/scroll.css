@@ -1,11 +1,4 @@
-/* ===== Scroll Context Isolation =====
-   Rules:
-   1. html → body → #root: 100% height, overflow hidden
-   2. Every flex column container in the scroll chain needs min-height: 0
-   3. The scrollable child needs overflow-y: auto + min-height: 0
-   4. Terminal gets touch-action: none (xterm.js manages touch)
-   5. Everything else gets touch-action: pan-y for mobile scroll
-*/
+/* ===== Scroll Context Isolation ===== */
 
 /* Layer 0: Root chain — lock viewport */
 html, body, #root {
@@ -27,7 +20,7 @@ html, body, #root {
   }
 }
 
-/* Scrollbar — unified thin style (Webkit) */
+/* Scrollbar — thin style (Webkit only, not universal) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,22 +36,8 @@ html, body, #root {
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
-}
-
 /* Terminal touch: xterm.js handles everything */
 .xterm-screen,
 .xterm-viewport {
   touch-action: none;
-}
-
-/* Scrollable areas: enable momentum touch scroll */
-.overflow-y-auto,
-[style*="overflow-y: auto"],
-[style*="overflowY: auto"] {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }
