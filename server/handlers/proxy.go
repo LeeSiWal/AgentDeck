@@ -41,11 +41,7 @@ func ProxyHandler() http.HandlerFunc {
 			return
 		}
 
-		host := strings.ToLower(parsed.Hostname())
-		if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
-			jsonError(w, "use direct connection for localhost", http.StatusBadRequest)
-			return
-		}
+		// localhost is allowed (needed for iPad Link Preview bypass via proxy)
 
 		req, err := http.NewRequest("GET", targetURL, nil)
 		if err != nil {
@@ -109,25 +105,32 @@ var (
 	srcsetRe = regexp.MustCompile(`(srcset)\s*=\s*"([^"]*)"`)
 )
 
+// JS injected into proxied HTML to bypass iPadOS Safari Link Preview on iframe links.
+// Captures click events at the top level and forces direct navigation instead of
+// letting Safari intercept them for preview popups.
+const linkPreviewBypassScript = `<script>
+document.addEventListener('click',function(e){
+var a=e.target.closest('a');
+if(a&&a.href){e.preventDefault();e.stopPropagation();window.location.href=a.href;}
+},true);
+</script>`
+
 func rewriteRelativeURLs(html, baseURL, pageURL string) string {
 	// Inject <base href> so relative URLs resolve correctly
 	baseTag := `<base href="` + pageURL + `" />`
+	injection := baseTag + linkPreviewBypassScript
+
 	if strings.Contains(strings.ToLower(html), "<head") {
-		html = strings.Replace(html, "<head>", "<head>"+baseTag, 1)
-		html = strings.Replace(html, "<HEAD>", "<HEAD>"+baseTag, 1)
-		// Handle <head with attributes
 		headIdx := strings.Index(strings.ToLower(html), "<head")
 		if headIdx >= 0 {
 			closeIdx := strings.Index(html[headIdx:], ">")
 			if closeIdx >= 0 {
 				insertPos := headIdx + closeIdx + 1
-				if !strings.Contains(html[:insertPos+10], "<base") {
-					html = html[:insertPos] + baseTag + html[insertPos:]
-				}
+				html = html[:insertPos] + injection + html[insertPos:]
 			}
 		}
 	} else {
-		html = baseTag + html
+		html = injection + html
 	}
 
 	// Rewrite /path URLs to absolute baseURL/path

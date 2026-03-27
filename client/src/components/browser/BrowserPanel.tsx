@@ -48,39 +48,47 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
     setSrcdoc('');
     setIframeSrc('');
 
-    if (isLocalUrl(normalized)) {
-      // Localhost: direct iframe
-      setIframeSrc(normalized);
-    } else {
-      // External: fetch via proxy → srcdoc
-      setLoading(true);
-      try {
-        const token = api.getToken();
-        const res = await fetch(`/api/proxy?url=${encodeURIComponent(normalized)}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+    // All URLs go through proxy for iPad Link Preview bypass (JS injection)
+    setLoading(true);
+    try {
+      const token = api.getToken();
+      const res = await fetch(`/api/proxy?url=${encodeURIComponent(normalized)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
 
-        if (!res.ok) {
-          setError(`Failed to load (${res.status})`);
-          setLoading(false);
-          return;
-        }
-
-        const contentType = res.headers.get('content-type') || '';
-
-        if (contentType.includes('application/json')) {
-          // HTML response wrapped in JSON for srcdoc
-          const data = await res.json();
-          setSrcdoc(data.html || '');
+      if (!res.ok) {
+        // Proxy failed — fallback to direct iframe for localhost
+        if (isLocalUrl(normalized)) {
+          setIframeSrc(normalized);
         } else {
-          // Non-HTML — can't srcdoc, open in new tab
+          setError(`Failed to load (${res.status})`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        setSrcdoc(data.html || '');
+      } else {
+        // Non-HTML — fall back to direct iframe for localhost, error for external
+        if (isLocalUrl(normalized)) {
+          setIframeSrc(normalized);
+        } else {
           setError('이 콘텐츠는 iframe에서 표시할 수 없습니다.');
         }
-      } catch (err: any) {
-        setError(err.message || 'Fetch failed');
-      } finally {
-        setLoading(false);
       }
+    } catch (err: any) {
+      // Network error — fallback to direct for localhost
+      if (isLocalUrl(normalized)) {
+        setIframeSrc(normalized);
+      } else {
+        setError(err.message || 'Fetch failed');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
