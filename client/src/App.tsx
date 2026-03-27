@@ -28,20 +28,24 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Mobile keyboard: override height only when virtual keyboard shrinks the viewport
   useEffect(() => {
-    const updateHeight = () => {
-      const vh = window.visualViewport?.height || window.innerHeight;
-      document.documentElement.style.setProperty('--app-height', `${vh}px`);
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const onResize = () => {
+      // Only override when keyboard is actually visible (viewport significantly smaller)
+      if (vv.height < window.innerHeight * 0.85) {
+        document.documentElement.style.setProperty('--kb-height', `${vv.height}px`);
+        document.getElementById('root')!.style.height = `${vv.height}px`;
+      } else {
+        document.documentElement.style.removeProperty('--kb-height');
+        document.getElementById('root')!.style.height = '';
+      }
     };
 
-    updateHeight();
-    window.visualViewport?.addEventListener('resize', updateHeight);
-    window.addEventListener('resize', updateHeight);
-
-    return () => {
-      window.visualViewport?.removeEventListener('resize', updateHeight);
-      window.removeEventListener('resize', updateHeight);
-    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
   }, []);
 
   return (
