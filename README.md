@@ -32,14 +32,14 @@ Go 단일 바이너리로 빌드되어 설치가 간편합니다.
 **macOS / Linux:**
 ```bash
 git clone https://github.com/LeeSiWal/AgentDeck.git
-cd agentdeck-go
+cd AgentDeck
 ./install.sh
 ```
 
 **Windows (PowerShell):**
 ```powershell
 git clone https://github.com/LeeSiWal/AgentDeck.git
-cd agentdeck-go
+cd AgentDeck
 .\install.ps1
 ```
 
@@ -56,7 +56,7 @@ cd agentdeck-go
 
 ```bash
 git clone https://github.com/LeeSiWal/AgentDeck.git
-cd agentdeck-go
+cd AgentDeck
 make setup    # 의존성 설치
 make build    # 빌드
 ./agentdeck   # 실행
