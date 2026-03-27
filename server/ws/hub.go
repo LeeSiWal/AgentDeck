@@ -115,9 +115,20 @@ func (h *Hub) handleMessage(c *Client, msg WSMessage) {
 		h.handleTerminalAttach(c, payload)
 
 	case EventTerminalDetach:
-		if c.watchingAgent != "" {
-			h.ptySvc.Close(c.watchingAgent)
-			c.watchingAgent = ""
+		var payload TerminalAttachPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			if c.watchingAgent != "" {
+				h.ptySvc.Close(c.watchingAgent)
+				c.watchingAgent = ""
+			}
+			return
+		}
+
+		if payload.AgentID == "" || c.watchingAgent == payload.AgentID {
+			if c.watchingAgent != "" {
+				h.ptySvc.Close(c.watchingAgent)
+				c.watchingAgent = ""
+			}
 		}
 
 	case EventTerminalInput:

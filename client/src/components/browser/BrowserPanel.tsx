@@ -72,7 +72,17 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
         </div>
       )}
 
-      <div className="flex-1 min-h-0">
+      {/* iframe wrapper: iOS Safari needs -webkit-overflow-scrolling:touch on parent
+           to allow iframe scrolling. Without it, iframe expands to full content height
+           and ignores the container dimensions. */}
+      <div
+        className="flex-1 min-h-0"
+        style={{
+          overflow: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+        }}
+      >
         {url ? (
           <>
             {error ? (
@@ -91,18 +101,17 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
               <iframe
                 ref={iframeRef}
                 src={url}
-                className="w-full h-full border-0"
+                style={{ width: '100%', height: '100%', border: 'none' }}
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
                 onError={() => setError(true)}
                 onLoad={() => {
-                  // Try to detect X-Frame-Options block (cross-origin will throw)
                   try {
                     const doc = iframeRef.current?.contentDocument;
                     if (doc && doc.body && doc.body.innerHTML === '') {
                       setError(true);
                     }
                   } catch {
-                    // Cross-origin — iframe loaded but we can't inspect it, which is normal
+                    // Cross-origin — normal
                   }
                 }}
               />

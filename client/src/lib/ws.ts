@@ -7,6 +7,13 @@ class AgentDeckWS {
   private token: string | null = null;
 
   connect(token: string) {
+    if (
+      this.token === token &&
+      (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+
     this.token = token;
     this.cleanup();
 

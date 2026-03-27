@@ -18,7 +18,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const dataDisposableRef = useRef<{ dispose: () => void } | null>(null);
-  const { isMobile, isTablet } = useDevice();
+  const { isMobile, isTablet, isTouchDevice } = useDevice();
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [hasOutput, setHasOutput] = useState(false);
 
@@ -34,6 +34,15 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     if (!container) return;
 
     let disposed = false;
+    let attached = false;
+    const settleTimers: number[] = [];
+    let postRenderTimer = 0;
+    let initialRenderSettled = false;
+    const ua = navigator.userAgent;
+    const isAppleTouchWebKit =
+      isTouchDevice &&
+      /AppleWebKit/i.test(ua) &&
+      (/iP(ad|hone|od)/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
     const terminal = new Terminal({
       fontSize: resolvedFontSize,
@@ -64,8 +73,8 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       },
       cursorBlink: false,
       scrollback: 3000,
-      scrollSensitivity: 1.25,
-      smoothScrollDuration: 90,
+      scrollSensitivity: isTouchDevice ? 1.1 : 1.16,
+      smoothScrollDuration: isTouchDevice ? 245 : 180,
       allowTransparency: false,
       disableStdin: true,
       allowProposedApi: true,
@@ -81,8 +90,6 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       terminal.unicode.activeVersion = '11';
     } catch {}
 
-    terminal.open(container);
-
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
@@ -90,15 +97,80 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     let lastW = 0;
     let lastH = 0;
     let fitRaf = 0;
+    let openRaf = 0;
+    let hasOpened = false;
+    const getViewport = () => container.querySelector('.xterm-viewport') as HTMLDivElement | null;
+    const getScrollArea = () => container.querySelector('.xterm-scroll-area') as HTMLDivElement | null;
 
-    const safeFit = () => {
-      if (disposed) return;
+    const syncTerminalSize = () => {
+      if (!attached || disposed || !hasOpened) return;
+      agentDeckWS.send('terminal:resize', {
+        agentId,
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
+    };
+
+    const attachTerminal = () => {
+      if (disposed || attached || !hasOpened) return;
+      attached = true;
+      agentDeckWS.send('terminal:attach', {
+        agentId,
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
+    };
+
+    const refreshViewportScroll = () => {
+      const viewport = getViewport();
+      const scrollArea = getScrollArea();
+      if (!viewport) return;
+
+      if (isAppleTouchWebKit) {
+        viewport.style.setProperty('-webkit-overflow-scrolling', 'auto');
+        viewport.style.overflowY = 'hidden';
+        void viewport.offsetHeight;
+        viewport.style.overflowY = 'scroll';
+        viewport.style.setProperty('-webkit-overflow-scrolling', 'touch');
+      } else {
+        viewport.style.setProperty('-webkit-overflow-scrolling', 'touch');
+        viewport.style.overflowY = 'scroll';
+      }
+
+      viewport.style.overscrollBehaviorY = 'contain';
+      viewport.style.touchAction = 'auto';
+      viewport.style.pointerEvents = 'auto';
+      if (scrollArea) {
+        scrollArea.style.pointerEvents = 'auto';
+      }
+
+      // Force WebKit to rebuild the scrollable viewport after reload.
+      const top = viewport.scrollTop;
+      viewport.scrollTop = top + 1;
+      void viewport.offsetHeight;
+      viewport.scrollTop = top;
+    };
+
+    const forceViewportResizeCycle = () => {
+      if (!isAppleTouchWebKit) return;
+      if (terminal.cols < 2 || terminal.rows < 2) return;
+
+      const cols = terminal.cols;
+      const rows = terminal.rows;
+
+      // iOS Safari sometimes keeps xterm's viewport inert until a real resize path runs.
+      terminal.resize(cols, rows - 1);
+      terminal.resize(cols, rows);
+    };
+
+    const safeFit = (force = false, reattach = false) => {
+      if (disposed || !hasOpened) return;
       if (!container.isConnected) return;
 
       const w = container.clientWidth;
       const h = container.clientHeight;
       if (w <= 0 || h <= 0) return;
-      if (w === lastW && h === lastH) return;
+      if (!force && w === lastW && h === lastH) return;
       lastW = w;
       lastH = h;
 
@@ -107,19 +179,19 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
         requestAnimationFrame(() => {
           if (disposed) return;
           try { fitAddon.fit(); } catch { return; }
-          agentDeckWS.send('terminal:resize', {
-            agentId,
-            cols: terminal.cols,
-            rows: terminal.rows,
-          });
+          forceViewportResizeCycle();
+          terminal.refresh(0, Math.max(terminal.rows - 1, 0));
+          refreshViewportScroll();
+          syncTerminalSize();
         });
       });
     };
 
     // --- bindReady: safeFit + focus (called after pageshow, vv resize, fonts) ---
-    const bindReady = () => {
+    const bindReady = (reattach = false) => {
+      if (!hasOpened) return;
       lastW = 0; lastH = 0;
-      safeFit();
+      safeFit(true, reattach);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (!disposed) terminal.focus();
@@ -127,22 +199,63 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       });
     };
 
-    // --- Connection & Attach ---
-    const doAttach = () => {
-      agentDeckWS.send('terminal:attach', {
-        agentId,
-        cols: terminal.cols,
-        rows: terminal.rows,
+    const scheduleViewportSettle = (reattach = false) => {
+      if (!hasOpened) return;
+      bindReady(reattach);
+      if (!isAppleTouchWebKit) return;
+
+      [32, 96, 180, 320].forEach((delay) => {
+        const timer = window.setTimeout(() => {
+          bindReady(false);
+        }, delay);
+        settleTimers.push(timer);
       });
     };
 
-    if (agentDeckWS.connected) {
-      doAttach();
-      setStatus('connected');
-    }
+    const schedulePostRenderSettle = () => {
+      if (!isAppleTouchWebKit || disposed || !hasOpened) return;
+      clearTimeout(postRenderTimer);
+      postRenderTimer = window.setTimeout(() => {
+        if (disposed) return;
+        bindReady(false);
+      }, 40);
+    };
+
+    const openWhenReady = (attempt = 0) => {
+      if (disposed || hasOpened) return;
+      if (!container.isConnected) return;
+
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w <= 0 || h <= 0) {
+        openRaf = requestAnimationFrame(() => openWhenReady(attempt + 1));
+        return;
+      }
+
+      // On direct page reload Safari often needs a couple of stable frames before xterm.open.
+      if (attempt < 2) {
+        openRaf = requestAnimationFrame(() => openWhenReady(attempt + 1));
+        return;
+      }
+
+      terminal.open(container);
+      hasOpened = true;
+      lastW = 0;
+      lastH = 0;
+
+      if (agentDeckWS.connected) {
+        attachTerminal();
+        scheduleViewportSettle(true);
+        setStatus('connected');
+      }
+    };
+    openWhenReady();
 
     const unsubConnect = agentDeckWS.on('open', () => {
-      doAttach();
+      attached = false;
+      if (!hasOpened) return;
+      attachTerminal();
+      scheduleViewportSettle(true);
       setStatus('connected');
     });
     const unsubDisconnect = agentDeckWS.on('close', () => {
@@ -152,10 +265,20 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     // --- Output ---
     const unsubOutput = agentDeckWS.on('terminal:output', (payload: any) => {
       if (payload.agentId === agentId) {
+        if (!hasOpened) return;
         terminal.write(payload.data);
+        if (!hasOutputRef.current) scheduleViewportSettle(false);
         if (!hasOutputRef.current) setHasOutput(true);
         if (statusRef.current !== 'connected') setStatus('connected');
       }
+    });
+    const unsubRender = terminal.onRender(() => {
+      if (!hasOpened) return;
+      if (initialRenderSettled) return;
+      initialRenderSettled = true;
+      schedulePostRenderSettle();
+      settleTimers.push(window.setTimeout(() => schedulePostRenderSettle(), 120));
+      settleTimers.push(window.setTimeout(() => schedulePostRenderSettle(), 260));
     });
 
     // ========================================
@@ -167,37 +290,52 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     ro.observe(container);
 
     // 2. pageshow — initial load + bfcache restore → full rebind
-    window.addEventListener('pageshow', bindReady);
+    const onPageShow = () => scheduleViewportSettle(false);
+    window.addEventListener('pageshow', onPageShow);
+
+    const onWindowLoad = () => scheduleViewportSettle(false);
+    window.addEventListener('load', onWindowLoad);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') scheduleViewportSettle(false);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     // 3. visualViewport.resize — debounced
     const vv = window.visualViewport;
     let vvTimer = 0;
     const onVVResize = () => {
       clearTimeout(vvTimer);
-      vvTimer = window.setTimeout(bindReady, 100);
+      vvTimer = window.setTimeout(() => scheduleViewportSettle(false), 100);
     };
     vv?.addEventListener('resize', onVVResize);
 
     // 4. Web fonts
-    document.fonts?.ready?.then(bindReady);
+    document.fonts?.ready?.then(() => scheduleViewportSettle(false));
 
     // 5. pointerdown on container → focus terminal (re-grab after overlay/tab switch)
     const onPointerDown = () => { terminal.focus(); };
     container.addEventListener('pointerdown', onPointerDown, { passive: true });
 
     // Initial
-    safeFit();
+    if (hasOpened) safeFit();
 
     return () => {
       disposed = true;
       cancelAnimationFrame(fitRaf);
+      cancelAnimationFrame(openRaf);
+      clearTimeout(postRenderTimer);
       clearTimeout(vvTimer);
+      settleTimers.forEach((timer) => clearTimeout(timer));
       unsubOutput();
+      unsubRender.dispose();
       unsubConnect();
       unsubDisconnect();
       agentDeckWS.send('terminal:detach', { agentId });
       ro.disconnect();
-      window.removeEventListener('pageshow', bindReady);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('load', onWindowLoad);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       vv?.removeEventListener('resize', onVVResize);
       container.removeEventListener('pointerdown', onPointerDown);
       dataDisposableRef.current?.dispose();
@@ -206,7 +344,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [agentId, resolvedFontSize]);
+  }, [agentId, isTouchDevice, resolvedFontSize]);
 
   // Toggle raw mode without recreating terminal
   useEffect(() => {

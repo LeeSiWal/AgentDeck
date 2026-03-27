@@ -42,6 +42,8 @@ export function TerminalPage() {
   const [leftWidth, setLeftWidth] = useState(220);
   const [rightWidth, setRightWidth] = useState(220);
   const [editing, setEditing] = useState(false);
+  const [terminalMountKey, setTerminalMountKey] = useState(0);
+  const [terminalReady, setTerminalReady] = useState(false);
   const resizingRef = useRef<'left' | 'right' | null>(null);
 
   const agentId = id || '';
@@ -59,6 +61,41 @@ export function TerminalPage() {
       api.getAgent(agentId).then(setAgent).catch(() => navigate('/dashboard'));
     }
   }, [agentId, navigate]);
+
+  useEffect(() => {
+    if (!agentId) return;
+
+    const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const isDirectReload = navEntry?.type === 'reload';
+
+    const armTerminal = () => {
+      window.setTimeout(() => setTerminalReady(true), isDirectReload ? 650 : 0);
+    };
+
+    setTerminalReady(false);
+
+    if (document.readyState === 'complete') {
+      armTerminal();
+      return;
+    }
+
+    const onLoad = () => armTerminal();
+    window.addEventListener('load', onLoad);
+    return () => window.removeEventListener('load', onLoad);
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    const bootstrapKey = `terminal-bootstrap:${agentId}`;
+    if (sessionStorage.getItem(bootstrapKey) === 'done') return;
+
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem(bootstrapKey, 'done');
+      setTerminalMountKey((key) => key + 1);
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [agentId]);
 
   // CHAT mode: forward keyboard events to terminal when focus is NOT on an input/textarea
   // Shift+Tab always forwarded (Claude Code mode cycling: plan/auto/etc.)
@@ -263,7 +300,11 @@ export function TerminalPage() {
         {/* Content — no absolute positioning, flex fills remaining space */}
         {activeTab === 'terminal' && (
           <div className="flex-1 min-h-0">
-            <TerminalView agentId={agentId} rawMode={rawMode} />
+            {terminalReady ? (
+              <TerminalView key={`${agentId}:${terminalMountKey}`} agentId={agentId} rawMode={rawMode} />
+            ) : (
+              <div className="h-full w-full" />
+            )}
           </div>
         )}
         {selectedFile && fileContent !== null && activeTab === 'editor' && (
@@ -448,7 +489,11 @@ export function TerminalPage() {
           {/* Content — flex fills remaining space, no absolute */}
           {activeTab === 'terminal' && (
             <div className="flex-1 min-h-0">
-              <TerminalView agentId={agentId} rawMode={rawMode} />
+              {terminalReady ? (
+                <TerminalView key={`${agentId}:${terminalMountKey}`} agentId={agentId} rawMode={rawMode} />
+              ) : (
+                <div className="h-full w-full" />
+              )}
             </div>
           )}
           {selectedFile && fileContent !== null && activeTab === 'editor' && (

@@ -8,6 +8,12 @@ export function useWebSocket() {
   const { setAgents, addAgent, removeAgent, updateAgentStatus, isAuthenticated } = useAppStore();
 
   useEffect(() => {
+    if (isAuthenticated) return;
+    agentDeckWS.disconnect();
+    connected.current = false;
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     const token = api.getToken();
@@ -53,8 +59,6 @@ export function useWebSocket() {
 
     return () => {
       unsubs.forEach((fn) => fn());
-      agentDeckWS.disconnect();
-      connected.current = false;
     };
   }, [isAuthenticated]);
 

@@ -37,11 +37,23 @@
   pointer-events: auto;
 }
 
+.xterm {
+  height: 100%;
+}
+
+.xterm-viewport,
+.xterm-screen {
+  height: 100% !important;
+}
+
 /* ===== Terminal touch-action (granular) ===== */
 
 /* Viewport: scroll owner — let browser handle all touch natively */
 .xterm-viewport {
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
   touch-action: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Screen (canvas): allow vertical pan only */
@@ -51,6 +63,7 @@
 
 /* Terminal wrapper: vertical pan + pinch, contain scroll chain */
 .terminal-shell {
+  min-height: 0;
   touch-action: pan-y pinch-zoom;
   overscroll-behavior-y: contain;
 }
