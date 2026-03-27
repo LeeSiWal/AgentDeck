@@ -86,7 +86,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // --- safeFit: skip if same size, double-RAF, no refresh during scroll ---
+    // --- safeFit: skip same size, double-RAF, then focus ---
     let lastW = 0;
     let lastH = 0;
     let fitRaf = 0;
@@ -112,6 +112,17 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
             cols: terminal.cols,
             rows: terminal.rows,
           });
+        });
+      });
+    };
+
+    // --- bindReady: safeFit + focus (called after pageshow, vv resize, fonts) ---
+    const bindReady = () => {
+      lastW = 0; lastH = 0;
+      safeFit();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!disposed) terminal.focus();
         });
       });
     };
@@ -148,30 +159,33 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     });
 
     // ========================================
-    // Event sources that trigger safeFit()
+    // Event sources: safeFit + focus
     // ========================================
 
     // 1. ResizeObserver — container size changes
     const ro = new ResizeObserver(() => safeFit());
     ro.observe(container);
 
-    // 2. pageshow — initial load + bfcache restore
-    const onPageShow = () => { lastW = 0; lastH = 0; safeFit(); };
-    window.addEventListener('pageshow', onPageShow);
+    // 2. pageshow — initial load + bfcache restore → full rebind
+    window.addEventListener('pageshow', bindReady);
 
-    // 3. visualViewport.resize — debounced 100ms (keyboard animation fires many events)
+    // 3. visualViewport.resize — debounced
     const vv = window.visualViewport;
     let vvTimer = 0;
     const onVVResize = () => {
       clearTimeout(vvTimer);
-      vvTimer = window.setTimeout(() => { lastW = 0; lastH = 0; safeFit(); }, 100);
+      vvTimer = window.setTimeout(bindReady, 100);
     };
     vv?.addEventListener('resize', onVVResize);
 
     // 4. Web fonts
-    document.fonts?.ready?.then(() => { lastW = 0; lastH = 0; safeFit(); });
+    document.fonts?.ready?.then(bindReady);
 
-    // Initial fit
+    // 5. pointerdown on container → focus terminal (re-grab after overlay/tab switch)
+    const onPointerDown = () => { terminal.focus(); };
+    container.addEventListener('pointerdown', onPointerDown, { passive: true });
+
+    // Initial
     safeFit();
 
     return () => {
@@ -183,8 +197,9 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       unsubDisconnect();
       agentDeckWS.send('terminal:detach', { agentId });
       ro.disconnect();
-      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('pageshow', bindReady);
       vv?.removeEventListener('resize', onVVResize);
+      container.removeEventListener('pointerdown', onPointerDown);
       dataDisposableRef.current?.dispose();
       dataDisposableRef.current = null;
       terminal.dispose();
@@ -215,15 +230,14 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
   }, [rawMode, agentId]);
 
   const handleClick = useCallback(() => {
-    if (rawMode && terminalRef.current) {
-      terminalRef.current.focus();
-    }
-  }, [rawMode]);
+    terminalRef.current?.focus();
+  }, []);
 
   return (
     <div className="relative w-full h-full terminal-shell">
+      {/* Status overlays — pointer-events:none so they don't block xterm */}
       {status !== 'connected' && (
-        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-1.5 text-xs flex items-center gap-2"
+        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-1.5 text-xs flex items-center gap-2 pointer-events-none"
              style={{
                background: status === 'disconnected' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
                color: status === 'disconnected' ? '#ef4444' : '#f59e0b',
@@ -235,7 +249,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       )}
 
       {status === 'connected' && !hasOutput && (
-        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-1.5 text-xs flex items-center gap-2"
+        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-1.5 text-xs flex items-center gap-2 pointer-events-none"
              style={{ background: 'rgba(34,197,94,0.08)', color: '#64748b' }}>
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#22c55e' }} />
           Connected — waiting for output...

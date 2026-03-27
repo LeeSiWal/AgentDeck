@@ -28,6 +28,15 @@
   border-radius: 2px;
 }
 
+/* ===== Terminal pointer + touch ===== */
+
+/* Ensure xterm elements always receive pointer events */
+.xterm,
+.xterm-viewport,
+.xterm-screen {
+  pointer-events: auto;
+}
+
 /* ===== Terminal touch-action (granular) ===== */
 
 /* Viewport: scroll owner — let browser handle all touch natively */
