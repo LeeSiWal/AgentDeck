@@ -29,9 +29,9 @@ func FileTree(fileSvc *services.FileService, agentSvc *services.AgentService) ht
 			return
 		}
 
-		depth := 3
+		depth := 10
 		if depthStr != "" {
-			if d, err := strconv.Atoi(depthStr); err == nil && d > 0 && d <= 10 {
+			if d, err := strconv.Atoi(depthStr); err == nil && d > 0 && d <= 20 {
 				depth = d
 			}
 		}
