@@ -161,6 +161,24 @@ make build    # 빌드
 
 첫 실행 시 자동 생성되며, 직접 편집도 가능합니다.
 
+### PIN 변경
+
+PIN은 `~/.agentdeck/.env` 파일에 저장됩니다.
+
+```bash
+# PIN 확인
+cat ~/.agentdeck/.env
+
+# PIN 변경 (원하는 숫자로 교체)
+nano ~/.agentdeck/.env
+# AGENTDECK_PIN=123456  ← 이 값을 수정
+
+# 변경 후 재시작
+~/.agentdeck/agentdeck
+```
+
+> UI에서 변경하는 기능은 현재 없으며 `.env` 파일 직접 수정 방식입니다.
+
 ### PM2로 상시 실행
 
 ```bash
