@@ -28,7 +28,7 @@
   border-radius: 2px;
 }
 
-/* xterm canvas: block touch so browser doesn't interfere with xterm rendering */
+/* xterm: allow vertical touch scroll, block horizontal pan/pinch */
 .xterm-screen {
-  touch-action: none;
+  touch-action: pan-y;
 }
