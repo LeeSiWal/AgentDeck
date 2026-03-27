@@ -28,6 +28,15 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Force layout recalculation after mount.
+  // On refresh, flex/overflow layout can freeze before browser finishes computing.
+  // A synthetic resize event forces the browser to recalculate everything.
+  useEffect(() => {
+    const t1 = setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+    const t2 = setTimeout(() => window.dispatchEvent(new Event('resize')), 200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
   // Mobile keyboard: override height only when virtual keyboard shrinks the viewport
   useEffect(() => {
     const vv = window.visualViewport;
