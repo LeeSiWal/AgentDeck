@@ -18,8 +18,7 @@
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* Terminal touch isolation */
-.xterm-screen,
-.xterm-viewport {
+/* Terminal touch: only block on canvas layer, NOT on viewport (viewport needs scroll) */
+.xterm-screen {
   touch-action: none;
 }

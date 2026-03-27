@@ -31,6 +31,9 @@ func (s *TmuxService) CreateSession(sessionName, workingDir, command string, arg
 	// This allows xterm.js scrollback to work naturally.
 	exec.Command("tmux", "set-option", "-t", sessionName, "alternate-screen", "off").Run()
 
+	// Disable tmux mouse mode so wheel events go to xterm.js, not tmux.
+	exec.Command("tmux", "set-option", "-t", sessionName, "mouse", "off").Run()
+
 	return nil
 }
 
