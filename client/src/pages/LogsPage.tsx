@@ -32,7 +32,7 @@ export function LogsPage() {
   }, [fetchLogs]);
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
+    <div className="flex flex-col h-full safe-top bg-deck-bg overflow-hidden">
       <header className="px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
         <span className="text-sm font-medium">Logs</span>
       </header>

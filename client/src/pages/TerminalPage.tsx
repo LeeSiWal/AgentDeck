@@ -187,7 +187,7 @@ export function TerminalPage() {
   // ──────────── MOBILE LAYOUT ────────────
   if (isMobile) {
     return (
-      <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
+      <div className="flex flex-col h-full safe-top bg-deck-bg overflow-hidden">
         {/* Header */}
         <header className="flex items-center gap-2 px-3 py-2 bg-deck-surface border-b border-deck-border shrink-0">
           <button onClick={() => navigate('/dashboard')} className="p-1.5 -ml-1 rounded active:bg-deck-border/30">
@@ -401,8 +401,8 @@ export function TerminalPage() {
         {/* Left: File explorer */}
         {leftPanelOpen && !zoomedPanel && (
           <>
-            <div className="shrink-0 flex flex-col" style={{ width: `${leftWidth}px`, borderRight: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
-              <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+            <div className="shrink-0 flex flex-col overflow-hidden min-h-0 border-r border-deck-border" style={{ width: `${leftWidth}px` }}>
+              <div className="flex-1 overflow-y-auto min-h-0">
                 <FileExplorer
                   tree={tree}
                   changedFiles={changedFiles}
@@ -422,7 +422,7 @@ export function TerminalPage() {
         )}
 
         {/* Center: Terminal + Editor */}
-        <div className="flex-1 min-w-0 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
           {/* Tab bar when file is open */}
           {selectedFile && fileContent !== null && (
             <div className="flex shrink-0 bg-deck-surface border-b border-deck-border">
@@ -483,7 +483,7 @@ export function TerminalPage() {
               className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-purple-500"
               onMouseDown={(e) => handleMouseDown('right', e)}
             />
-            <div className="shrink-0 flex flex-col" style={{ width: `${rightWidth}px`, borderLeft: '1px solid var(--deck-border, #1e293b)', overflow: 'hidden', minHeight: 0 }}>
+            <div className="shrink-0 flex flex-col overflow-hidden min-h-0 border-l border-deck-border" style={{ width: `${rightWidth}px` }}>
               {rightTab === 'browser' ? (
                 <BrowserPanel agentId={agentId} onClose={() => setRightPanelOpen(false)} />
               ) : (

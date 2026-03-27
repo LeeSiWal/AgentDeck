@@ -44,7 +44,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg overflow-hidden">
+    <div className="flex flex-col h-full safe-top bg-deck-bg overflow-hidden">
       <header className="flex items-center justify-between px-4 py-2 bg-deck-surface border-b border-deck-border shrink-0">
         <div>
           <span className="text-sm font-medium">Dashboard</span>
@@ -63,7 +63,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+      <main className="flex-1 overflow-y-auto min-h-0">
         {isMobile ? (
           <AgentList agents={agents} onDestroy={deleteAgent} />
         ) : (

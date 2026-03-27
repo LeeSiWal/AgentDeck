@@ -15,7 +15,7 @@ export function AgentLauncherPage() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] safe-top bg-deck-bg">
+    <div className="flex flex-col h-full safe-top bg-deck-bg overflow-hidden">
       <header className="flex items-center gap-3 px-4 py-2 bg-deck-surface border-b border-deck-border">
         <button onClick={() => navigate('/')} className="p-1 rounded hover:bg-deck-border/30">
           <IconBack size={16} />

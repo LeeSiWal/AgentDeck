@@ -134,16 +134,6 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     const ro = new ResizeObserver(handleResize);
     ro.observe(termContainer);
 
-    // Isolate xterm.js wheel/touch events from parent scroll contexts
-    const handleWheel = (e: WheelEvent) => {
-      e.stopPropagation();
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      e.stopPropagation();
-    };
-    termContainer.addEventListener('wheel', handleWheel, { passive: true });
-    termContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
-
     return () => {
       unsubOutput();
       unsubConnect();
@@ -151,8 +141,6 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       agentDeckWS.send('terminal:detach', { agentId });
       clearTimeout(resizeTimer);
       ro.disconnect();
-      termContainer.removeEventListener('wheel', handleWheel);
-      termContainer.removeEventListener('touchmove', handleTouchMove);
       dataDisposableRef.current?.dispose();
       dataDisposableRef.current = null;
       terminal.dispose();

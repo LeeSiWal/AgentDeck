@@ -139,7 +139,7 @@ export function CommandPalette() {
           <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-deck-bg text-deck-text-dim border border-deck-border">ESC</kbd>
         </div>
 
-        <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-2" style={{ minHeight: 0 }}>
+        <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-2 min-h-0">
           {filtered.length === 0 && (
             <div className="px-4 py-6 text-center text-sm text-deck-text-dim">결과 없음</div>
           )}
