@@ -113,6 +113,9 @@ func main() {
 	api.HandleFunc("/notifications", handlers.ListNotifications(notifSvc)).Methods("GET")
 	api.HandleFunc("/notifications/clear", handlers.ClearNotifications(notifSvc)).Methods("POST")
 
+	// Proxy for external URLs (iframe X-Frame-Options bypass)
+	api.HandleFunc("/proxy", handlers.ProxyHandler()).Methods("GET")
+
 	// Agent meta + send
 	api.HandleFunc("/agents/{id}/send", handlers.SendToAgent(agentSvc, hub)).Methods("POST")
 	api.HandleFunc("/agents/{id}/meta", handlers.GetAgentMeta(gitSvc, portScanner, notifSvc)).Methods("GET")
