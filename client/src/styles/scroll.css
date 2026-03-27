@@ -1,26 +1,8 @@
-/* ===== Scroll Context Isolation ===== */
+/* ===== Scroll — minimal reset only ===== */
+/* All scroll behavior is controlled by Tailwind classes in components.
+   This file only sets the root height chain and scrollbar appearance. */
 
-/* Layer 0: Root chain — lock viewport */
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-#root {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Mobile keyboard-safe height */
-@supports (height: 100dvh) {
-  body, #root {
-    height: var(--app-height, 100dvh);
-  }
-}
-
-/* Scrollbar — thin style (Webkit only, not universal) */
+/* Scrollbar appearance (Webkit) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -36,7 +18,7 @@ html, body, #root {
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* Terminal touch: xterm.js handles everything */
+/* Terminal touch isolation */
 .xterm-screen,
 .xterm-viewport {
   touch-action: none;
