@@ -32,7 +32,19 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
     echo "  Running inside WSL"
 fi
 
-# ── 2. Install Homebrew (macOS only, if missing) ──
+# ── 2. Install Xcode Command Line Tools (macOS, required for CGO/SQLite) ──
+if [ "$OS" = "Darwin" ]; then
+    if ! xcode-select -p &>/dev/null; then
+        echo "  Installing Xcode Command Line Tools (required for SQLite build)..."
+        xcode-select --install
+        echo "  ⚠ After CLT installation completes, re-run ./install.sh"
+        exit 0
+    else
+        echo "  ✓ Xcode CLT found"
+    fi
+fi
+
+# ── 2b. Install Homebrew (macOS only, if missing) ──
 if [ "$OS" = "Darwin" ]; then
     if ! command -v brew &>/dev/null; then
         echo "  Installing Homebrew..."
@@ -112,7 +124,7 @@ echo ""
 echo "  Building AgentDeck..."
 
 cd "$SCRIPT_DIR"
-cd client && pnpm install --silent && pnpm build --silent 2>/dev/null
+cd client && pnpm install --silent && pnpm build
 cd ..
 rm -rf server/static
 cp -r client/dist server/static
