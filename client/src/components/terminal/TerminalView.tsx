@@ -63,7 +63,10 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
         brightWhite: '#f8fafc',
       },
       cursorBlink: false,
-      scrollback: 5000,
+      scrollback: 3000,
+      scrollSensitivity: 1.25,
+      smoothScrollDuration: 90,
+      allowTransparency: false,
       disableStdin: true,
       allowProposedApi: true,
       scrollOnUserInput: false,
@@ -78,32 +81,37 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       terminal.unicode.activeVersion = '11';
     } catch {}
 
-    // Open immediately — container exists in DOM
     terminal.open(container);
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // --- safeFit: the single source of truth for fit + PTY resize ---
-    // Called from multiple event sources. Only runs when container has real dimensions.
-    // Uses double-RAF to wait for browser layout + paint to fully settle.
+    // --- safeFit: skip if same size, double-RAF, no refresh during scroll ---
+    let lastW = 0;
+    let lastH = 0;
+    let fitRaf = 0;
+
     const safeFit = () => {
       if (disposed) return;
       if (!container.isConnected) return;
-      if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
 
-      requestAnimationFrame(() => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      if (w === lastW && h === lastH) return;
+      lastW = w;
+      lastH = h;
+
+      cancelAnimationFrame(fitRaf);
+      fitRaf = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (disposed) return;
-          try {
-            fitAddon.fit();
-          } catch { return; }
+          try { fitAddon.fit(); } catch { return; }
           agentDeckWS.send('terminal:resize', {
             agentId,
             cols: terminal.cols,
             rows: terminal.rows,
           });
-          terminal.refresh(0, terminal.rows - 1);
         });
       });
     };
@@ -140,30 +148,36 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     });
 
     // ========================================
-    // 4 event sources that trigger safeFit()
+    // Event sources that trigger safeFit()
     // ========================================
 
-    // 1. ResizeObserver — container size changes (flex layout settle, panel resize, zoom)
+    // 1. ResizeObserver — container size changes
     const ro = new ResizeObserver(() => safeFit());
     ro.observe(container);
 
-    // 2. pageshow — fires on initial load AND mobile page restore (bfcache)
-    const onPageShow = () => safeFit();
+    // 2. pageshow — initial load + bfcache restore
+    const onPageShow = () => { lastW = 0; lastH = 0; safeFit(); };
     window.addEventListener('pageshow', onPageShow);
 
-    // 3. visualViewport.resize — iPad Safari viewport changes, keyboard, address bar
+    // 3. visualViewport.resize — debounced 100ms (keyboard animation fires many events)
     const vv = window.visualViewport;
-    const onVVResize = () => safeFit();
+    let vvTimer = 0;
+    const onVVResize = () => {
+      clearTimeout(vvTimer);
+      vvTimer = window.setTimeout(() => { lastW = 0; lastH = 0; safeFit(); }, 100);
+    };
     vv?.addEventListener('resize', onVVResize);
 
-    // 4. Web fonts — JetBrains Mono loading changes xterm cell metrics
-    document.fonts?.ready?.then(() => safeFit());
+    // 4. Web fonts
+    document.fonts?.ready?.then(() => { lastW = 0; lastH = 0; safeFit(); });
 
     // Initial fit
     safeFit();
 
     return () => {
       disposed = true;
+      cancelAnimationFrame(fitRaf);
+      clearTimeout(vvTimer);
       unsubOutput();
       unsubConnect();
       unsubDisconnect();
@@ -207,7 +221,7 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
   }, [rawMode]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full terminal-shell">
       {status !== 'connected' && (
         <div className="absolute top-0 left-0 right-0 z-10 px-3 py-1.5 text-xs flex items-center gap-2"
              style={{
