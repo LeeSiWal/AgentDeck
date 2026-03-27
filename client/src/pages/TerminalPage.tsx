@@ -38,6 +38,7 @@ export function TerminalPage() {
   const [rightTab, setRightTab] = useState<'subagent' | 'browser'>('subagent');
   const [mobileFilesOpen, setMobileFilesOpen] = useState(false);
   const [mobileAnimOpen, setMobileAnimOpen] = useState(false);
+  const [mobileBrowserOpen, setMobileBrowserOpen] = useState(false);
   const [leftWidth, setLeftWidth] = useState(220);
   const [rightWidth, setRightWidth] = useState(220);
   const [editing, setEditing] = useState(false);
@@ -217,6 +218,13 @@ export function TerminalPage() {
               <circle cx="4.5" cy="10" r="1.2" fill="#a855f7" opacity="0.6" />
             </svg>
           </button>
+          <button
+            onClick={() => setMobileBrowserOpen(true)}
+            className="p-1.5 rounded active:bg-deck-border/30 text-sm"
+            title="Browser"
+          >
+            🌐
+          </button>
           <button onClick={() => setMobileFilesOpen(true)} className="p-1.5 rounded active:bg-deck-border/30">
             <IconFiles size={16} />
           </button>
@@ -305,6 +313,22 @@ export function TerminalPage() {
                   palette={generatePalette(agent?.colorHue ?? 220)}
                   onClose={() => setMobileAnimOpen(false)}
                 />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Browser bottom sheet */}
+        {mobileBrowserOpen && (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setMobileBrowserOpen(false)} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-xl safe-bottom bg-deck-surface border-t border-deck-border animate-slide-up"
+                 style={{ height: '75dvh' }}>
+              <div className="flex justify-center py-2" onClick={() => setMobileBrowserOpen(false)}>
+                <div className="w-10 h-1 rounded-full bg-deck-border" />
+              </div>
+              <div className="h-[calc(100%-28px)] overflow-hidden">
+                <BrowserPanel agentId={agentId} onClose={() => setMobileBrowserOpen(false)} />
               </div>
             </div>
           </>
