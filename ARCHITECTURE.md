@@ -3,7 +3,8 @@
 AI 에이전트 터미널 관제 데스크. Go 단일 바이너리 + 임베디드 React SPA.
 
 ```
-총 코드: ~10,800줄 (Go 4,119 + TS/CSS 6,742)
+총 코드: ~11,400줄 (Go 4,313 + TS/CSS 7,132)
+서버 파일: 34개  |  클라이언트 파일: 69개
 ```
 
 ---
@@ -54,7 +55,7 @@ agentdeck-go/
 │   │   └── migrations.go       # 스키마: agents, recent_projects, logs, notifications
 │   ├── middleware/
 │   │   ├── cors.go             # CORS
-│   │   ├── helmet.go           # 보안 헤더
+│   │   ├── helmet.go           # 보안 헤더 (CSP 포함)
 │   │   └── ratelimit.go        # 요율 제한
 │   ├── handlers/
 │   │   ├── agents.go           # 에이전트 CRUD + 슬래시커맨드
@@ -64,16 +65,17 @@ agentdeck-go/
 │   │   ├── auth_handler.go     # 로그인/토큰 갱신
 │   │   ├── meta.go             # 에이전트 메타(git/포트), send, status/progress/log
 │   │   ├── notification.go     # 알림 목록/읽음처리
+│   │   ├── proxy.go            # 외부 URL 리버스 프록시 (X-Frame-Options 우회, iPad Safari bypass JS 주입)
 │   │   └── helpers.go          # jsonResponse, jsonError 유틸
 │   ├── services/
 │   │   ├── agent.go            # 에이전트 비즈니스 로직, 색상 배정, SendKeys
-│   │   ├── tmux.go             # tmux 세션 생성/종료/키전송
+│   │   ├── tmux.go             # tmux 세션 생성/종료/키전송, alternate-screen 비활성화 (smcup@:rmcup@)
 │   │   ├── pty.go              # PTY 연결, 읽기/쓰기/리사이즈
 │   │   ├── file.go             # 파일시스템 조작, 경로 보안검증
 │   │   ├── project.go          # 프로젝트 탐색, 최근 프로젝트 DB
 │   │   ├── watcher.go          # fsnotify 파일감시 → WS 브로드캐스트
 │   │   ├── git.go              # git branch/dirty/ahead 폴링 (10초)
-│   │   ├── port_scanner.go     # TCP 리스닝 포트 감지 (15초, lsof/ss)
+│   │   ├── port_scanner.go     # TCP 리스닝 포트 감지 (lsof/ss)
 │   │   └── notification.go     # 알림 CRUD (SQLite)
 │   ├── ws/
 │   │   ├── hub.go              # WS 허브, 메타 폴링 루프, 브로드캐스트
@@ -90,20 +92,20 @@ agentdeck-go/
 │   ├── tailwind.config.js      # deck-* 커스텀 컬러, 커스텀 애니메이션
 │   ├── tsconfig.json
 │   └── src/
-│       ├── main.tsx            # React 18 렌더, SW 등록, CSS import
-│       ├── App.tsx             # BrowserRouter, AuthGuard, CommandPalette, visualViewport
+│       ├── main.tsx            # React 18 렌더, SW 등록, CSS import, Eruda (?debug)
+│       ├── App.tsx             # BrowserRouter, AuthGuard, CommandPalette, 모바일 키보드 대응
 │       │
 │       ├── pages/
 │       │   ├── LoginPage.tsx       # PIN 입력 → JWT 토큰
-│       │   ├── ProjectSelectPage.tsx # 프로젝트 선택/검색/생성
+│       │   ├── ProjectSelectPage.tsx # 프로젝트 선택/검색/생성 (에이전트 있으면 대시보드로 리다이렉트, ?new=1로 우회)
 │       │   ├── AgentLauncherPage.tsx # 프리셋 선택 → 에이전트 생성
-│       │   ├── DashboardPage.tsx    # 에이전트 그리드/리스트, 프로젝트 추가
-│       │   ├── TerminalPage.tsx     # 3패널 레이아웃 (파일/터미널/서브에이전트+브라우저)
+│       │   ├── DashboardPage.tsx    # 에이전트 그리드/리스트, 프로젝트 추가 버튼
+│       │   ├── TerminalPage.tsx     # 3패널 레이아웃 (파일/터미널/서브에이전트+브라우저), 패널 줌, 모바일 바텀시트
 │       │   ├── LogsPage.tsx         # 로그 검색
 │       │   └── SettingsPage.tsx     # 캐릭터 테마, 사운드
 │       │
 │       ├── components/
-│       │   ├── CommandPalette.tsx       # Cmd+K 글로벌 커맨드 팔레트
+│       │   ├── CommandPalette.tsx       # Cmd+K 글로벌 커맨드 팔레트 (퍼지 검색)
 │       │   ├── icons.tsx               # SVG 아이콘 + 파일확장자 아이콘맵
 │       │   ├── agent/
 │       │   │   ├── AgentCard.tsx        # 데스크톱: 카드 + 미니터미널 + 알림링 + 메타
@@ -112,11 +114,11 @@ agentdeck-go/
 │       │   │   ├── AgentLauncher.tsx    # 프리셋 선택 UI
 │       │   │   └── CreateAgentSheet.tsx # 에이전트 생성 바텀시트
 │       │   ├── terminal/
-│       │   │   ├── TerminalView.tsx     # xterm.js 래퍼, 휠격리, 리사이즈
+│       │   │   ├── TerminalView.tsx     # xterm.js 래퍼, safeFit 패턴 (ResizeObserver + pageshow + visualViewport + fonts.ready), pointerdown focus
 │       │   │   ├── TerminalInput.tsx    # CHAT 모드 입력바 (슬래시 자동완성)
 │       │   │   └── MobileToolbar.tsx    # 모바일 키보드 컨트롤
 │       │   ├── file/
-│       │   │   ├── FileExplorer.tsx     # 트리뷰 + 검색 + 컨텍스트메뉴
+│       │   │   ├── FileExplorer.tsx     # 트리뷰 + 검색 + 컨텍스트메뉴 (depth 10)
 │       │   │   ├── FilePreview.tsx      # 파일 미리보기 (마크다운: Raw/Preview 토글)
 │       │   │   ├── FileEditor.tsx       # 파일 편집기
 │       │   │   ├── MarkdownPreview.tsx  # react-markdown + remark-gfm 렌더러
@@ -134,7 +136,7 @@ agentdeck-go/
 │       │   │       ├── catPresets.ts     # Cat 테마 스프라이트
 │       │   │       └── types.ts          # 스프라이트 타입 정의
 │       │   ├── browser/
-│       │   │   └── BrowserPanel.tsx     # iframe localhost 프리뷰 + URL바 + 포트바로가기
+│       │   │   └── BrowserPanel.tsx     # iframe 브라우저: localhost 직접연결 + 외부 URL 프록시, iPad Safari bypass, 포트 자동감지
 │       │   ├── notification/
 │       │   │   ├── NotificationRing.tsx # 알림 링 애니메이션 래퍼
 │       │   │   └── NotificationBadge.tsx# 읽지않은 알림 카운트 뱃지
@@ -155,32 +157,32 @@ agentdeck-go/
 │       │       └── SoundSettings.tsx
 │       │
 │       ├── hooks/
-│       │   ├── useWebSocket.ts         # WS 싱글턴 연결 + 이벤트 구독
+│       │   ├── useWebSocket.ts         # WS 싱글턴 연결 + 이벤트 구독 (meta/notification 포함)
 │       │   ├── useAgents.ts            # 에이전트 CRUD
 │       │   ├── useAuth.ts              # 로그인/로그아웃
-│       │   ├── useDevice.ts            # 디바이스 감지 (mobile/tablet/desktop)
+│       │   ├── useDevice.ts            # 디바이스 감지 (mobile/tablet/desktop/isTouchDevice)
 │       │   ├── useFileExplorer.ts      # 파일트리 + 열기/저장/삭제 + 파일감시
 │       │   ├── useSubAgents.ts         # 터미널 출력에서 서브에이전트 파싱
 │       │   ├── useSubAgentSound.ts     # 서브에이전트 사운드 이펙트
-│       │   ├── useAgentNotification.ts # 터미널 출력 → 알림 감지 + 브라우저 알림
+│       │   ├── useAgentNotification.ts # 터미널 출력 → 알림 감지 + 브라우저 Notification
 │       │   ├── useProjects.ts          # 프로젝트 CRUD
 │       │   ├── useProjectLauncher.ts   # 프로젝트 선택 플로우
 │       │   ├── useSwipe.ts             # 모바일 스와이프 제스처
 │       │   └── useTerminal.ts          # (deprecated)
 │       │
 │       ├── stores/
-│       │   └── appStore.ts             # Zustand: agents, notifications, meta, zoom, palette
+│       │   └── appStore.ts             # Zustand: agents, notifications, meta, zoom, commandPalette
 │       │
 │       ├── lib/
-│       │   ├── ws.ts                   # AgentDeckWS 싱글턴 (자동 재연결 3초)
-│       │   ├── api.ts                  # REST 클라이언트 (401 자동 갱신)
+│       │   ├── ws.ts                   # AgentDeckWS 싱글턴 (자동 재연결 3초, 중복연결 방지)
+│       │   ├── api.ts                  # REST 클라이언트 (401 자동 갱신, 35개 메서드)
 │       │   ├── paletteGenerator.ts     # HSL→RGB 에이전트 컬러
 │       │   ├── soundManager.ts         # Web Audio API
 │       │   └── subAgentSounds.ts       # 사운드 정의
 │       │
 │       └── styles/
-│           ├── scroll.css              # 스크롤 격리, 스크롤바 통일, touch-action
-│           ├── globals.css             # 기본 스타일, 컴포넌트 클래스, xterm 스크롤바
+│           ├── scroll.css              # 스크롤바 스타일, xterm pointer-events/touch-action (세분화)
+│           ├── globals.css             # 기본 스타일, body/#root 높이(100dvh), 컴포넌트 클래스
 │           ├── animations.css          # 키프레임: orbital, particle, glow, slide
 │           └── notifications.css       # 알림 링 펄스 애니메이션 (4종)
 ```
@@ -204,7 +206,7 @@ notifications (id, agent_id FK CASCADE, reason, message, read, created_at)
 
 ---
 
-## REST API (34개 엔드포인트)
+## REST API (36개 엔드포인트)
 
 | Method | Path | 설명 |
 |--------|------|------|
@@ -223,7 +225,7 @@ notifications (id, agent_id FK CASCADE, reason, message, read, created_at)
 | POST | `/api/agents/{id}/meta/progress` | 진행률 설정 |
 | POST | `/api/agents/{id}/meta/log` | 로그 추가 |
 | POST | `/api/agents/{id}/notifications/read` | 알림 읽음처리 |
-| GET | `/api/files/tree` | 파일 트리 |
+| GET | `/api/files/tree` | 파일 트리 (기본 depth 10) |
 | GET | `/api/files/read` | 파일 읽기 |
 | PUT | `/api/files/write` | 파일 쓰기 |
 | POST | `/api/files/mkdir` | 디렉토리 생성 |
@@ -242,6 +244,8 @@ notifications (id, agent_id FK CASCADE, reason, message, read, created_at)
 | GET | `/api/logs/{agentId}` | 에이전트별 로그 |
 | GET | `/api/notifications` | 읽지 않은 알림 |
 | POST | `/api/notifications/clear` | 알림 전체 읽음 |
+| GET | `/api/proxy?url=` | 외부 URL 프록시 (X-Frame-Options 제거, iPad Safari JS 주입) |
+| WS | `/ws?token=` | WebSocket 연결 |
 
 ---
 
@@ -296,6 +300,61 @@ notifications (id, agent_id FK CASCADE, reason, message, read, created_at)
 [터미널 출력] → useAgentNotification(클라이언트 파싱)
              → addNotification → NotificationRing 애니메이션
              → Browser Notification (탭 비활성 시)
+
+[내장 브라우저]
+  localhost → iframe 직접연결 (포트 자동감지)
+  외부 URL  → Go 프록시 → HTML fetch → iPad bypass JS/CSS 주입 → srcdoc iframe
+```
+
+---
+
+## 터미널 초기화 (safeFit 패턴)
+
+xterm.js 초기화 시 iPad Safari에서 "새로고침 후 프리징" 문제를 해결하기 위한 multi-source refit:
+
+```
+1. terminal.open(container)
+2. safeFit() — double-RAF + 크기 0 체크 + 이전 크기와 비교
+3. 4개 이벤트 소스에서 반복 호출:
+   - ResizeObserver (컨테이너 크기 변화)
+   - pageshow (초기 로드 + bfcache 복원)
+   - visualViewport.resize (키보드/주소창, 100ms debounce)
+   - document.fonts.ready (웹폰트 로딩 완료)
+4. pointerdown → terminal.focus() (터치/클릭 시 포커스 재획득)
+5. 상태 오버레이에 pointer-events: none (xterm 이벤트 차단 방지)
+```
+
+---
+
+## tmux 설정
+
+```go
+// 세션 생성 시 자동 적용:
+tmux set-option -t {session} terminal-overrides "xterm*:smcup@:rmcup@"  // alternate screen 비활성화 (tmux 3.x)
+tmux set-option -t {session} mouse off                                   // 마우스 이벤트를 xterm.js로 전달
+```
+
+---
+
+## 내장 브라우저 프록시
+
+```
+GET /api/proxy?url=https://example.com
+
+동작:
+1. Go 서버가 외부 URL을 fetch
+2. X-Frame-Options, CSP, COEP, COOP 헤더 제거
+3. HTML이면:
+   - <base href> 주입 (상대 경로 해결)
+   - iPad Safari Link Preview bypass JS 주입:
+     * CSS: -webkit-touch-callout:none, touch-action:manipulation, -webkit-user-drag:none
+     * JS: touchend에서 이동거리 < 10px → closest('a') → location.href 직접 변경
+     * JS: click capture에서도 동일 처리 (fallback)
+   - 상대 URL을 절대 URL로 변환
+   - JSON { html, statusCode, url }로 응답 → srcdoc iframe
+4. 비-HTML이면: 헤더 정리 후 pass-through
+
+보안: GET만 허용, 10MB 제한, 15초 타임아웃, JWT 인증 필수
 ```
 
 ---
@@ -337,16 +396,43 @@ make build-server   # Go 빌드만 (static/ 임베드)
 
 **Go:** gorilla/mux, gorilla/websocket, creack/pty, fsnotify, go-sqlite3, golang-jwt, godotenv
 
-**Node:** react 18, react-router-dom 6, zustand 4, @xterm/xterm 5, @xterm/addon-fit, react-markdown, remark-gfm, tailwindcss 3, vite 6, typescript 5
+**Node:** react 18, react-router-dom 6, zustand 4, @xterm/xterm 5, @xterm/addon-fit, react-markdown, remark-gfm, tailwindcss 3, vite 6, typescript 5, eruda (dev)
 
 ---
 
-## 핵심 패턴
+## 스크롤/터치 아키텍처
+
+```css
+/* 루트 높이 체인: CSS만, JS 의존 없음 */
+body, #root { height: 100vh; height: 100dvh; overflow: hidden; }
+/* 모바일 키보드: visualViewport.height < 85%일 때만 #root.style.height override */
+
+/* 페이지: h-full (부모 100% 상속) + overflow-hidden */
+/* 스크롤 영역: flex-1 + overflow-y-auto + min-h-0 */
+/* 터미널: flex-1 + min-h-0 (absolute inset-0 사용 안 함) */
+```
+
+```css
+/* 터미널 touch-action (세분화) */
+.xterm-viewport { touch-action: auto; overflow-y: auto !important; }
+.xterm-screen   { touch-action: pan-y; }
+.terminal-shell { touch-action: pan-y pinch-zoom; overscroll-behavior-y: contain; }
+```
+
+```
+xterm 옵션: scrollback 3000, scrollSensitivity 1.1~1.25, smoothScrollDuration 90~245ms
+```
+
+---
+
+## 핵심 설계 패턴
 
 - **tmux + PTY**: 에이전트별 분리된 쉘 세션, 웹에서 실시간 I/O
 - **WS Hub**: 싱글턴 허브가 모든 클라이언트에 이벤트 브로드캐스트
+- **safeFit 패턴**: 4개 이벤트 소스에서 xterm fit/resize 재실행 (iPad Safari 대응)
 - **클라이언트 알림 감지**: 서버 부하 없이 터미널 출력 패턴 매칭
 - **서버 메타 폴링**: git/포트 정보는 서버에서 수집 후 WS 푸시
-- **스크롤 격리**: flex + min-height:0 + overflow-y:auto 패턴
+- **프록시 + iPad bypass**: 외부 URL iframe 로딩 + touchend JS 주입
 - **반응형**: useDevice 훅으로 mobile/tablet/desktop 분기
 - **색상 자동배정**: HSL 거리 최대화로 에이전트별 고유 컬러
+- **디버그**: `?debug` 쿼리로 Eruda 모바일 콘솔 활성화
