@@ -17,10 +17,28 @@ export function IconFile({ size, color = '#cccccc', className }: IconProps) {
   return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke={color} strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke={color} strokeWidth="1" fill="none" /></I>;
 }
 export function IconFileTs({ size, color = '#3178c6', className }: IconProps) {
-  return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke="#555" strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke="#555" strokeWidth="1" fill="none" /><text x="5" y="12" fontSize="5.5" fontWeight="bold" fill={color} fontFamily="monospace">TS</text></I>;
+  return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke="#555" strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke="#555" strokeWidth="1" fill="none" /><text x="8" y="12" fontSize="5.5" fontWeight="bold" fill={color} fontFamily="monospace" textAnchor="middle">TS</text></I>;
 }
 export function IconFileJs({ size, color = '#f1e05a', className }: IconProps) {
-  return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke="#555" strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke="#555" strokeWidth="1" fill="none" /><text x="5.5" y="12" fontSize="5.5" fontWeight="bold" fill={color} fontFamily="monospace">JS</text></I>;
+  return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke="#555" strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke="#555" strokeWidth="1" fill="none" /><text x="8" y="12" fontSize="5.5" fontWeight="bold" fill={color} fontFamily="monospace" textAnchor="middle">JS</text></I>;
+}
+
+function mkFileIcon(label: string, color: string, stroke = '#555') {
+  return function FileIconGenerated({ size, className }: IconProps) {
+    const fs = label.length > 2 ? '4.2' : '5.5';
+    return (
+      <I size={size} className={className}>
+        <path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke={stroke} strokeWidth="1" fill="none" />
+        <path d="M10 1v3h3" stroke={stroke} strokeWidth="1" fill="none" />
+        <text x="8" y="12" fontSize={fs} fontWeight="bold" fill={color} fontFamily="monospace" textAnchor="middle">{label}</text>
+      </I>
+    );
+  };
+}
+
+// Image file icon
+export function IconFileImage({ size, className }: IconProps) {
+  return <I size={size} className={className}><path d="M10 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V4L10 1z" stroke="#555" strokeWidth="1" fill="none" /><path d="M10 1v3h3" stroke="#555" strokeWidth="1" fill="none" /><path d="M3.5 12l2.5-3 1.5 2 1.5-1.5 2 2.5" stroke="#a78bfa" strokeWidth="0.9" fill="none" /><circle cx="5.5" cy="8" r="1" fill="#a78bfa" /></I>;
 }
 export function IconFolder({ size, color = '#dcb67a', className }: IconProps) {
   return <I size={size} className={className}><path d="M1.5 3a.5.5 0 0 1 .5-.5h4l1.5 1.5h6a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5V3z" fill={color} opacity="0.85" /></I>;
@@ -115,7 +133,44 @@ export function IconGear({ size, color = '#6B7280', className }: IconProps) {
 }
 
 export const FILE_ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
-  ts: IconFileTs, tsx: IconFileTs, js: IconFileJs, jsx: IconFileJs,
+  // TypeScript
+  ts: IconFileTs, tsx: IconFileTs,
+  // JavaScript
+  js: IconFileJs, jsx: IconFileJs, mjs: mkFileIcon('JS', '#f1e05a'), cjs: mkFileIcon('JS', '#f1e05a'),
+  // Python
+  py: mkFileIcon('PY', '#3572A5'), pyw: mkFileIcon('PY', '#3572A5'),
+  // Go
+  go: mkFileIcon('GO', '#00ADD8'),
+  // Rust
+  rs: mkFileIcon('RS', '#dea584'),
+  // Java / JVM
+  java: mkFileIcon('JV', '#b07219'), kt: mkFileIcon('KT', '#A97BFF'), scala: mkFileIcon('SC', '#c22d40'),
+  // C / C++
+  c: mkFileIcon('C', '#9999ff'), h: mkFileIcon('C', '#9999ff'), cpp: mkFileIcon('C+', '#f34b7d'), cc: mkFileIcon('C+', '#f34b7d'), hpp: mkFileIcon('C+', '#f34b7d'),
+  // Web
+  html: mkFileIcon('HT', '#e34c26'), htm: mkFileIcon('HT', '#e34c26'),
+  css: mkFileIcon('CS', '#563d7c'), scss: mkFileIcon('SC', '#c6538c'), sass: mkFileIcon('SC', '#c6538c'), less: mkFileIcon('LS', '#1d365d'),
+  vue: mkFileIcon('VU', '#42b883'), svelte: mkFileIcon('SV', '#ff3e00'),
+  // Config / Data
+  json: mkFileIcon('{}', '#cbcb41'), jsonc: mkFileIcon('{}', '#cbcb41'),
+  yaml: mkFileIcon('YL', '#cb171e'), yml: mkFileIcon('YL', '#cb171e'),
+  toml: mkFileIcon('TM', '#9c4221'), ini: mkFileIcon('IN', '#6b7280'), cfg: mkFileIcon('CF', '#6b7280'),
+  xml: mkFileIcon('XL', '#0060ac'), csv: mkFileIcon('CV', '#237346'),
+  // Markdown / Docs
+  md: mkFileIcon('MD', '#519aba'), mdx: mkFileIcon('MD', '#519aba'), rst: mkFileIcon('RS', '#879a6e'), txt: mkFileIcon('TX', '#8b949e'),
+  // Shell
+  sh: mkFileIcon('SH', '#89e051'), bash: mkFileIcon('SH', '#89e051'), zsh: mkFileIcon('SH', '#89e051'), fish: mkFileIcon('SH', '#89e051'),
+  // Env / Git / Docker
+  env: mkFileIcon('ENV', '#eacc3a', '#444'), gitignore: mkFileIcon('GIT', '#f05033'), gitattributes: mkFileIcon('GIT', '#f05033'), dockerignore: mkFileIcon('DK', '#0db7ed'),
+  dockerfile: mkFileIcon('DK', '#0db7ed'),
+  // Database / Query
+  sql: mkFileIcon('SQ', '#e38c00'), graphql: mkFileIcon('GQ', '#e10098'), gql: mkFileIcon('GQ', '#e10098'),
+  // Lock / Log
+  lock: mkFileIcon('LK', '#6b7280'), log: mkFileIcon('LG', '#6b7280'),
+  // Ruby / PHP / Swift
+  rb: mkFileIcon('RB', '#701516'), php: mkFileIcon('PH', '#777bb4'), swift: mkFileIcon('SW', '#F05138'),
+  // Images
+  png: IconFileImage, jpg: IconFileImage, jpeg: IconFileImage, gif: IconFileImage, webp: IconFileImage, svg: IconFileImage, ico: IconFileImage, bmp: IconFileImage,
 };
 
 export const AGENT_ICON_MAP: Record<string, React.ComponentType<IconProps>> = {

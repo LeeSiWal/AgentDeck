@@ -27,24 +27,6 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const autoAttachedRef = useRef(false);
-
-  // Auto-attach: when ports are detected, immediately set iframe src (no proxy for localhost)
-  useEffect(() => {
-    if (autoAttachedRef.current) return;
-    if (ports.length === 0) return;
-
-    autoAttachedRef.current = true;
-    const url = `http://localhost:${ports[0]}`;
-    setDisplayUrl(url);
-    setIframeSrc(url);  // Direct — no proxy, no async fetch, instant
-  }, [ports]);
-
-  // When NEW ports appear after initial attach, update port bar but don't auto-switch
-  const prevPortsRef = useRef<number[]>([]);
-  useEffect(() => {
-    prevPortsRef.current = ports;
-  }, [ports]);
 
   const navigateTo = async (newUrl: string) => {
     let normalized = newUrl.trim();
@@ -58,13 +40,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
     setSrcdoc('');
     setIframeSrc('');
 
-    if (isLocalUrl(normalized)) {
-      // Localhost: direct iframe — instant, no proxy overhead
-      setIframeSrc(normalized);
-      return;
-    }
-
-    // External: fetch via proxy → srcdoc (with iPad Safari bypass injection)
+    // All URLs go through proxy for iPad Link Preview bypass (JS injection)
     setLoading(true);
     try {
       const token = api.getToken();
@@ -73,7 +49,12 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
       });
 
       if (!res.ok) {
-        setError(`Failed to load (${res.status})`);
+        // Proxy failed — fallback to direct iframe for localhost
+        if (isLocalUrl(normalized)) {
+          setIframeSrc(normalized);
+        } else {
+          setError(`Failed to load (${res.status})`);
+        }
         setLoading(false);
         return;
       }
@@ -84,17 +65,34 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
         const data = await res.json();
         setSrcdoc(data.html || '');
       } else {
-        setError('이 콘텐츠는 iframe에서 표시할 수 없습니다.');
+        // Non-HTML — fall back to direct iframe for localhost, error for external
+        if (isLocalUrl(normalized)) {
+          setIframeSrc(normalized);
+        } else {
+          setError('이 콘텐츠는 iframe에서 표시할 수 없습니다.');
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Fetch failed');
+      // Network error — fallback to direct for localhost
+      if (isLocalUrl(normalized)) {
+        setIframeSrc(normalized);
+      } else {
+        setError(err.message || 'Fetch failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-navigate to first detected port
+  useEffect(() => {
+    if (!displayUrl && ports.length > 0) {
+      const autoUrl = `http://localhost:${ports[0]}`;
+      navigateTo(autoUrl);
+    }
+  }, [ports, displayUrl]);
+
   const isLocal = isLocalUrl(displayUrl);
-  const activePort = ports.find(p => displayUrl.includes(`:${p}`));
 
   return (
     <div className="flex flex-col h-full bg-deck-surface overflow-hidden">
@@ -122,25 +120,23 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
         </button>
       </div>
 
-      {/* Port shortcuts */}
-      {ports.length > 0 && (
-        <div className="flex items-center gap-1 px-2 py-1 border-b border-deck-border/50 shrink-0 overflow-x-auto">
-          {ports.map((port) => (
-            <button
-              key={port}
-              onClick={() => navigateTo(`http://localhost:${port}`)}
-              className={`text-[11px] px-2 py-1 rounded font-mono shrink-0 active:opacity-70 ${
-                activePort === port ? 'bg-deck-accent/20 text-deck-accent' : 'bg-deck-bg text-deck-text-dim hover:bg-deck-border/30'
-              }`}
-            >
-              :{port}
-            </button>
-          ))}
-          {displayUrl && !isLocal && (
-            <span className="text-[10px] text-amber-400 ml-auto shrink-0">proxy</span>
-          )}
-        </div>
-      )}
+      {/* Port shortcuts + proxy indicator */}
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-deck-border/50 shrink-0 overflow-x-auto">
+        {ports.map((port) => (
+          <button
+            key={port}
+            onClick={() => navigateTo(`http://localhost:${port}`)}
+            className={`text-[11px] px-2 py-1 rounded font-mono shrink-0 active:opacity-70 ${
+              displayUrl.includes(`:${port}`) ? 'bg-deck-accent/20 text-deck-accent' : 'bg-deck-bg text-deck-text-dim hover:bg-deck-border/30'
+            }`}
+          >
+            :{port}
+          </button>
+        ))}
+        {displayUrl && !isLocal && (
+          <span className="text-[10px] text-amber-400 ml-auto shrink-0">proxy</span>
+        )}
+      </div>
 
       {/* iframe area */}
       <div

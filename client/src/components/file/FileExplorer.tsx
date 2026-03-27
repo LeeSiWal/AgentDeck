@@ -37,10 +37,15 @@ function buildMatchSet(node: FileNode, search: string): Set<string> {
   return matches;
 }
 
-function getFileIcon(name: string, size = 14) {
-  const ext = name.split('.').pop()?.toLowerCase();
-  const Comp = ext ? FILE_ICON_MAP[ext] : undefined;
-  if (Comp) return <Comp size={size} />;
+function getFileIcon(name: string, size = 23) {
+  const lower = name.toLowerCase();
+  // Check full filename first (e.g. Dockerfile, .env, .gitignore)
+  const ByName = FILE_ICON_MAP[lower.replace(/^\./, '')];
+  if (ByName) return <ByName size={size} />;
+  // Then check extension
+  const ext = lower.split('.').pop();
+  const ByExt = ext ? FILE_ICON_MAP[ext] : undefined;
+  if (ByExt) return <ByExt size={size} />;
   return <IconFile size={size} />;
 }
 
@@ -183,7 +188,7 @@ function TreeNode({
           </span>
         ) : <span className="w-4" />}
         <span className="shrink-0">
-          {isDir ? (expanded ? <IconFolderOpen size={14} /> : <IconFolder size={14} />) : getFileIcon(node.name)}
+          {isDir ? (expanded ? <IconFolderOpen size={18} /> : <IconFolder size={18} />) : getFileIcon(node.name)}
         </span>
         <span className="truncate ml-0.5">{node.name}</span>
         {isChanged && <span className="w-1.5 h-1.5 rounded-full shrink-0 ml-auto bg-deck-accent" />}

@@ -32,11 +32,7 @@ type FileStat struct {
 	Mode    string `json:"mode"`
 }
 
-var ignoredDirs = map[string]bool{
-	"node_modules": true, ".git": true, "__pycache__": true,
-	".next": true, "dist": true, ".cache": true, "coverage": true,
-	".turbo": true, "build": true, ".DS_Store": true,
-}
+var ignoredDirs = map[string]bool{}
 
 func (s *FileService) ValidatePath(baseDir, requestedPath string) (string, error) {
 	absBase, err := filepath.Abs(baseDir)
@@ -110,9 +106,6 @@ func (s *FileService) buildTree(node *FileNode, dir string, depth, maxDepth int)
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if strings.HasPrefix(name, ".") && name != ".env.example" {
-			continue
-		}
 		if ignoredDirs[name] {
 			continue
 		}
