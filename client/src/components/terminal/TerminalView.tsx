@@ -33,7 +33,8 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
     const container = termRef.current;
     if (!container) return;
 
-    // --- Create terminal (but DON'T open yet) ---
+    let disposed = false;
+
     const terminal = new Terminal({
       fontSize: resolvedFontSize,
       fontFamily: "'JetBrains Mono', 'D2Coding', 'Noto Sans KR', monospace",
@@ -77,42 +78,33 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       terminal.unicode.activeVersion = '11';
     } catch {}
 
+    // Open immediately — container exists in DOM
+    terminal.open(container);
+
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // --- Safe fit: only when container has real dimensions ---
-    let opened = false;
-
-    const doFitAndResize = () => {
-      if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
-      fitAddon.fit();
-      agentDeckWS.send('terminal:resize', {
-        agentId,
-        cols: terminal.cols,
-        rows: terminal.rows,
-      });
-      terminal.refresh(0, terminal.rows - 1);
-    };
-
-    const openWhenReady = () => {
-      if (opened) return;
+    // --- safeFit: the single source of truth for fit + PTY resize ---
+    // Called from multiple event sources. Only runs when container has real dimensions.
+    // Uses double-RAF to wait for browser layout + paint to fully settle.
+    const safeFit = () => {
+      if (disposed) return;
       if (!container.isConnected) return;
       if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
 
-      // Container is visible and has real dimensions — safe to open
-      terminal.open(container);
-      opened = true;
-
-      // Double RAF: wait for browser to finish layout + paint
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          doFitAndResize();
+          if (disposed) return;
+          try {
+            fitAddon.fit();
+          } catch { return; }
+          agentDeckWS.send('terminal:resize', {
+            agentId,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
+          terminal.refresh(0, terminal.rows - 1);
         });
-      });
-
-      // Web font loaded → refit (JetBrains Mono may load late)
-      document.fonts?.ready?.then(() => {
-        doFitAndResize();
       });
     };
 
@@ -147,29 +139,38 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       }
     });
 
-    // --- ResizeObserver: handles initial mount + subsequent resizes ---
-    let resizeTimer: ReturnType<typeof setTimeout>;
-    const ro = new ResizeObserver(() => {
-      if (!opened) {
-        openWhenReady();
-        return;
-      }
-      // Debounce resize
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(doFitAndResize, 100);
-    });
+    // ========================================
+    // 4 event sources that trigger safeFit()
+    // ========================================
+
+    // 1. ResizeObserver — container size changes (flex layout settle, panel resize, zoom)
+    const ro = new ResizeObserver(() => safeFit());
     ro.observe(container);
 
-    // Try opening immediately (might work if container already has dimensions)
-    openWhenReady();
+    // 2. pageshow — fires on initial load AND mobile page restore (bfcache)
+    const onPageShow = () => safeFit();
+    window.addEventListener('pageshow', onPageShow);
+
+    // 3. visualViewport.resize — iPad Safari viewport changes, keyboard, address bar
+    const vv = window.visualViewport;
+    const onVVResize = () => safeFit();
+    vv?.addEventListener('resize', onVVResize);
+
+    // 4. Web fonts — JetBrains Mono loading changes xterm cell metrics
+    document.fonts?.ready?.then(() => safeFit());
+
+    // Initial fit
+    safeFit();
 
     return () => {
+      disposed = true;
       unsubOutput();
       unsubConnect();
       unsubDisconnect();
       agentDeckWS.send('terminal:detach', { agentId });
-      clearTimeout(resizeTimer);
       ro.disconnect();
+      window.removeEventListener('pageshow', onPageShow);
+      vv?.removeEventListener('resize', onVVResize);
       dataDisposableRef.current?.dispose();
       dataDisposableRef.current = null;
       terminal.dispose();
