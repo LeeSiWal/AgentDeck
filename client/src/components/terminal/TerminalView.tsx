@@ -30,9 +30,10 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
   const resolvedFontSize = fontSize ?? (isMobile ? 12 : isTablet ? 13 : 14);
 
   useEffect(() => {
-    if (!termRef.current) return;
-    const termContainer = termRef.current;
+    const container = termRef.current;
+    if (!container) return;
 
+    // --- Create terminal (but DON'T open yet) ---
     const terminal = new Terminal({
       fontSize: resolvedFontSize,
       fontFamily: "'JetBrains Mono', 'D2Coding', 'Noto Sans KR', monospace",
@@ -76,11 +77,44 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       terminal.unicode.activeVersion = '11';
     } catch {}
 
-    terminal.open(termRef.current);
-    requestAnimationFrame(() => fitAddon.fit());
-
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+
+    // --- Safe fit: only when container has real dimensions ---
+    let opened = false;
+
+    const doFitAndResize = () => {
+      if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
+      fitAddon.fit();
+      agentDeckWS.send('terminal:resize', {
+        agentId,
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
+      terminal.refresh(0, terminal.rows - 1);
+    };
+
+    const openWhenReady = () => {
+      if (opened) return;
+      if (!container.isConnected) return;
+      if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
+
+      // Container is visible and has real dimensions — safe to open
+      terminal.open(container);
+      opened = true;
+
+      // Double RAF: wait for browser to finish layout + paint
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          doFitAndResize();
+        });
+      });
+
+      // Web font loaded → refit (JetBrains Mono may load late)
+      document.fonts?.ready?.then(() => {
+        doFitAndResize();
+      });
+    };
 
     // --- Connection & Attach ---
     const doAttach = () => {
@@ -113,25 +147,21 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       }
     });
 
-    // xterm handles scrollback natively (scrollback: 5000).
-    // tmux alternate screen is disabled via terminal-overrides smcup@:rmcup@.
-
-    // --- Resize ---
+    // --- ResizeObserver: handles initial mount + subsequent resizes ---
     let resizeTimer: ReturnType<typeof setTimeout>;
-    const handleResize = () => {
+    const ro = new ResizeObserver(() => {
+      if (!opened) {
+        openWhenReady();
+        return;
+      }
+      // Debounce resize
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        fitAddon.fit();
-        agentDeckWS.send('terminal:resize', {
-          agentId,
-          cols: terminal.cols,
-          rows: terminal.rows,
-        });
-      }, 100);
-    };
+      resizeTimer = setTimeout(doFitAndResize, 100);
+    });
+    ro.observe(container);
 
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(termContainer);
+    // Try opening immediately (might work if container already has dimensions)
+    openWhenReady();
 
     return () => {
       unsubOutput();
