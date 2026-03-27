@@ -18,3 +18,10 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+
+// Mobile debug console — ?debug query param activates
+if (new URLSearchParams(location.search).has('debug')) {
+  import('eruda').then((mod) => {
+    mod.default.init();
+  }).catch(() => {});
+}
