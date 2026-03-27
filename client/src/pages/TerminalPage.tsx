@@ -402,17 +402,15 @@ export function TerminalPage() {
         {leftPanelOpen && !zoomedPanel && (
           <>
             <div className="shrink-0 flex flex-col overflow-hidden min-h-0 border-r border-deck-border" style={{ width: `${leftWidth}px` }}>
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <FileExplorer
-                  tree={tree}
-                  changedFiles={changedFiles}
-                  onSelect={handleOpenFile}
-                  onRefresh={fetchTree}
-                  onMkdir={createDir}
-                  onDelete={deleteFile}
-                  workingDir={agent.workingDir}
-                />
-              </div>
+              <FileExplorer
+                tree={tree}
+                changedFiles={changedFiles}
+                onSelect={handleOpenFile}
+                onRefresh={fetchTree}
+                onMkdir={createDir}
+                onDelete={deleteFile}
+                workingDir={agent.workingDir}
+              />
             </div>
             <div
               className="w-1 cursor-col-resize shrink-0 hover:opacity-100 opacity-0 transition-opacity bg-deck-accent"

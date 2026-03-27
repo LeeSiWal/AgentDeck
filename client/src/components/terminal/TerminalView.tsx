@@ -113,9 +113,8 @@ export function TerminalView({ agentId, fontSize, rawMode = false }: TerminalVie
       }
     });
 
-    // --- Scroll ---
-    // tmux alternate-screen is OFF, so output goes to normal buffer.
-    // xterm handles scrollback natively — no custom handler needed.
+    // xterm handles scrollback natively (scrollback: 5000).
+    // tmux alternate screen is disabled via terminal-overrides smcup@:rmcup@.
 
     // --- Resize ---
     let resizeTimer: ReturnType<typeof setTimeout>;

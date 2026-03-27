@@ -27,9 +27,10 @@ func (s *TmuxService) CreateSession(sessionName, workingDir, command string, arg
 		return err
 	}
 
-	// Disable alternate screen so TUI apps (Claude Code, etc.) use normal buffer.
-	// This allows xterm.js scrollback to work naturally.
-	exec.Command("tmux", "set-option", "-t", sessionName, "alternate-screen", "off").Run()
+	// Disable alternate screen: strip smcup/rmcup so TUI apps stay in normal buffer.
+	// This is the modern tmux 3.x way (alternate-screen option was removed).
+	// smcup@:rmcup@ = remove "enter/exit alternate screen" terminal capabilities.
+	exec.Command("tmux", "set-option", "-t", sessionName, "terminal-overrides", "xterm*:smcup@:rmcup@").Run()
 
 	// Disable tmux mouse mode so wheel events go to xterm.js, not tmux.
 	exec.Command("tmux", "set-option", "-t", sessionName, "mouse", "off").Run()

@@ -1,24 +1,34 @@
-/* ===== Scroll — minimal reset only ===== */
-/* All scroll behavior is controlled by Tailwind classes in components.
-   This file only sets the root height chain and scrollbar appearance. */
+/* ===== Scroll — minimal overrides ===== */
 
-/* Scrollbar appearance (Webkit) */
-::-webkit-scrollbar {
+/* Scrollbar appearance (Webkit) — NON-terminal areas only */
+*:not(.xterm-viewport)::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track {
+*:not(.xterm-viewport)::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb {
+*:not(.xterm-viewport)::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.3);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
+*:not(.xterm-viewport)::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* Terminal touch: only block on canvas layer, NOT on viewport (viewport needs scroll) */
+/* xterm viewport: thin scrollbar but preserve xterm's own scroll mechanics */
+.xterm-viewport::-webkit-scrollbar {
+  width: 4px;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+/* xterm canvas: block touch so browser doesn't interfere with xterm rendering */
 .xterm-screen {
   touch-action: none;
 }
