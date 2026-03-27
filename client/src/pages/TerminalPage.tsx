@@ -260,28 +260,26 @@ export function TerminalPage() {
           <SubAgentBar agentId={agentId} />
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-h-0 relative">
-          {activeTab === 'terminal' && (
-            <div className="absolute inset-0">
-              <TerminalView agentId={agentId} rawMode={rawMode} />
-            </div>
-          )}
-          {selectedFile && fileContent !== null && activeTab === 'editor' && (
-            <div className="absolute inset-0">
-              {editing ? (
-                <FileEditor
-                  path={selectedFile}
-                  content={fileContent}
-                  onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
-                  onCancel={() => setEditing(false)}
-                />
-              ) : (
-                <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
-              )}
-            </div>
-          )}
-        </div>
+        {/* Content — no absolute positioning, flex fills remaining space */}
+        {activeTab === 'terminal' && (
+          <div className="flex-1 min-h-0">
+            <TerminalView agentId={agentId} rawMode={rawMode} />
+          </div>
+        )}
+        {selectedFile && fileContent !== null && activeTab === 'editor' && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {editing ? (
+              <FileEditor
+                path={selectedFile}
+                content={fileContent}
+                onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
+                onCancel={() => setEditing(false)}
+              />
+            ) : (
+              <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
+            )}
+          </div>
+        )}
 
         {/* Bottom input */}
         {rawMode ? (
@@ -447,28 +445,26 @@ export function TerminalPage() {
             </div>
           )}
 
-          {/* Content */}
-          <div className="flex-1 min-h-0 relative">
-            {activeTab === 'terminal' && (
-              <div className="absolute inset-0">
-                <TerminalView agentId={agentId} rawMode={rawMode} />
-              </div>
-            )}
-            {selectedFile && fileContent !== null && activeTab === 'editor' && (
-              <div className="absolute inset-0">
-                {editing ? (
-                  <FileEditor
-                    path={selectedFile}
-                    content={fileContent}
-                    onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
-                    onCancel={() => setEditing(false)}
-                  />
-                ) : (
-                  <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
-                )}
-              </div>
-            )}
-          </div>
+          {/* Content — flex fills remaining space, no absolute */}
+          {activeTab === 'terminal' && (
+            <div className="flex-1 min-h-0">
+              <TerminalView agentId={agentId} rawMode={rawMode} />
+            </div>
+          )}
+          {selectedFile && fileContent !== null && activeTab === 'editor' && (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {editing ? (
+                <FileEditor
+                  path={selectedFile}
+                  content={fileContent}
+                  onSave={async (content) => { await saveFile(selectedFile, content); setEditing(false); }}
+                  onCancel={() => setEditing(false)}
+                />
+              ) : (
+                <FilePreview path={selectedFile} content={fileContent} onEdit={() => setEditing(true)} />
+              )}
+            </div>
+          )}
 
           {/* Bottom input - CHAT mode shows TerminalInput on ALL devices */}
           {!rawMode && activeTab === 'terminal' && <TerminalInput agentId={agentId} />}
