@@ -25,6 +25,20 @@ Go 단일 바이너리로 빌드되어 설치가 간편합니다.
 
 ---
 
+## 사전 요구사항
+
+AgentDeck은 AI CLI 도구의 **런처**입니다. 사용하려는 CLI가 미리 설치되어 있어야 합니다.
+
+| CLI | 설치 명령 |
+|-----|----------|
+| [Claude Code](https://docs.anthropic.com/ko/docs/claude-code) | `npm install -g @anthropic-ai/claude-code` |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` |
+| [OpenAI Codex CLI](https://github.com/openai/codex) | `npm install -g @openai/codex` |
+
+> AgentDeck 자체는 CLI를 설치하지 않습니다. 원하는 CLI를 먼저 설치한 뒤 AgentDeck을 실행하세요.
+
+---
+
 ## 설치
 
 ### 원클릭 설치 (권장)
