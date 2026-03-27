@@ -105,20 +105,39 @@ var (
 	srcsetRe = regexp.MustCompile(`(srcset)\s*=\s*"([^"]*)"`)
 )
 
-// JS injected into proxied HTML to bypass iPadOS Safari Link Preview on iframe links.
-// Captures click events at the top level and forces direct navigation instead of
-// letting Safari intercept them for preview popups.
-const linkPreviewBypassScript = `<script>
+// iPadOS Safari Link Preview bypass: CSS + JS injected into proxied HTML.
+// Safari intercepts touch → hover → Link Preview BEFORE JS click events fire.
+// Solution: handle touchend (fires before Safari's click interception) + CSS to
+// disable touch-callout, user-drag, and double-tap zoom delay.
+const safariBypassInjection = `<style>
+*{-webkit-touch-callout:none!important;touch-action:manipulation!important}
+a{-webkit-user-drag:none!important;-webkit-tap-highlight-color:transparent!important}
+</style>
+<script>
+(function(){
+var sx=0,sy=0;
+document.addEventListener('touchstart',function(e){
+var t=e.touches[0];sx=t.clientX;sy=t.clientY;
+},{passive:true});
+document.addEventListener('touchend',function(e){
+var t=e.changedTouches[0];
+var dx=Math.abs(t.clientX-sx),dy=Math.abs(t.clientY-sy);
+if(dx>10||dy>10)return;
+var a=document.elementFromPoint(t.clientX,t.clientY);
+if(a)a=a.closest('a');
+if(a&&a.href){e.preventDefault();e.stopImmediatePropagation();window.location.href=a.href;}
+},{capture:true});
 document.addEventListener('click',function(e){
 var a=e.target.closest('a');
-if(a&&a.href){e.preventDefault();e.stopPropagation();window.location.href=a.href;}
+if(a&&a.href){e.preventDefault();e.stopImmediatePropagation();window.location.href=a.href;}
 },true);
+})();
 </script>`
 
 func rewriteRelativeURLs(html, baseURL, pageURL string) string {
 	// Inject <base href> so relative URLs resolve correctly
 	baseTag := `<base href="` + pageURL + `" />`
-	injection := baseTag + linkPreviewBypassScript
+	injection := baseTag + safariBypassInjection
 
 	if strings.Contains(strings.ToLower(html), "<head") {
 		headIdx := strings.Index(strings.ToLower(html), "<head")

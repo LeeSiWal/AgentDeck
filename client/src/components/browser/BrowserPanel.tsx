@@ -168,7 +168,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
           <iframe
             ref={iframeRef}
             src={iframeSrc}
-            style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'auto', position: 'relative', zIndex: 1 }}
+            style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'auto', position: 'relative', zIndex: 1, touchAction: 'manipulation' }}
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
           />
         )}
@@ -177,7 +177,7 @@ export function BrowserPanel({ agentId, onClose }: BrowserPanelProps) {
           <iframe
             ref={iframeRef}
             srcDoc={srcdoc}
-            style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'auto', position: 'relative', zIndex: 1 }}
+            style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'auto', position: 'relative', zIndex: 1, touchAction: 'manipulation' }}
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
           />
         )}
