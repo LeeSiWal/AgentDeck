@@ -37,6 +37,7 @@ export function TerminalInput({ agentId }: TerminalInputProps) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [focused, setFocused] = useState(false);
   const lines = value.split('\n');
   const lineCount = lines.length;
   const isLong = lineCount > LINE_COLLAPSE_THRESHOLD;
@@ -187,7 +188,7 @@ export function TerminalInput({ agentId }: TerminalInputProps) {
         <span className="text-sm shrink-0 font-mono mt-0.5 md:text-xs text-deck-accent">&gt;</span>
 
         <div className="flex-1 min-w-0">
-          {isLong && !expanded ? (
+          {isLong && !expanded && !focused ? (
             <button
               onClick={() => { setExpanded(true); setTimeout(() => textareaRef.current?.focus(), 0); }}
               className="flex items-center gap-2 w-full text-left"
@@ -205,13 +206,14 @@ export function TerminalInput({ agentId }: TerminalInputProps) {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              onBlur={() => { if (isLong) setExpanded(false); }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => { setFocused(false); if (isLong) setExpanded(false); }}
               placeholder="Type a command... ( / for slash commands)"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              rows={expanded ? Math.min(lineCount, 10) : 1}
+              rows={(expanded || focused) ? Math.min(lineCount, 10) : 1}
               className="flex-1 w-full bg-transparent text-base outline-none font-mono min-w-0 md:text-sm resize-none text-deck-text"
               style={{ caretColor: 'var(--deck-accent, #6366f1)' }}
             />
